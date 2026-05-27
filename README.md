@@ -188,11 +188,9 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.2.2** — Referer-aware font downloads (unblocks foundry CDNs that 403 without a Referer)
 - [x] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite`
 - [x] **v0.4** — License heuristic + `LICENSE_REVIEW.md` + fail-fast on all-commercial sites (`--force` to bypass)
-- [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 - [x] **v0.6** — Provenance grouping: output split into `google/` / `adobe-typekit/` / `commercial/` / `open-cdn/` / `self-hosted/`
-- [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
-- [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style
-- [ ] **v0.6** — Provenance grouping: split output into `google/`, `adobe-typekit/`, `self-hosted/`, `cdn/`
+- [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.md#v10--monorepo-restructure--shipped): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
+- [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.
 
