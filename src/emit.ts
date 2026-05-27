@@ -1,4 +1,5 @@
 import type { FontFace, OrphanFile } from './types.js';
+import type { ClassifiedFace, LicenseSummary } from './license.js';
 
 export function buildFontsCss(faces: FontFace[]): string {
   const lines: string[] = [
@@ -101,5 +102,82 @@ export function buildReadme(
   lines.push('- Multiple files per weight/style usually means the source split the font by `unicode-range` (Latin, Latin-Ext, Cyrillic, etc.). The browser only loads the subsets it needs — keep them all.');
   lines.push('- For local design exploration. Verify licensing before shipping to production.');
   lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Emits LICENSE_REVIEW.md — a heuristic summary of which fonts on the site
+ * are open/self-hostable, which are commercial (don't ship without a license),
+ * and which couldn't be confidently classified.
+ *
+ * Not legal advice. The classifier is conservative on purpose; "unknown"
+ * cases are the user's responsibility to verify.
+ */
+export function buildLicenseReview(
+  host: string,
+  classified: ClassifiedFace[],
+  summary: LicenseSummary,
+): string {
+  const lines: string[] = [
+    `# License review for ${host}`,
+    '',
+    '> Heuristic-only. Not legal advice. Verify before shipping.',
+    '',
+    '## Summary',
+    '',
+    `- ✅ **${summary.open} open** — safe to self-host`,
+    `- ⚠️ **${summary.commercial} commercial** — do not ship without a license`,
+    `- ❓ **${summary.unknown} unknown** — manual review needed`,
+    '',
+  ];
+
+  const sections: Array<{ status: 'open' | 'commercial' | 'unknown'; title: string; note?: string }> = [
+    { status: 'open', title: '## ✅ Open / self-hostable' },
+    {
+      status: 'commercial',
+      title: '## ⚠️ Commercial — do not ship without a license',
+      note: 'These came from a commercial foundry CDN. Bundling them into a production app without a paid license violates the foundry EULA.',
+    },
+    {
+      status: 'unknown',
+      title: '## ❓ Unknown — manual review',
+      note: "Couldn't match against known CDN signatures or the known-open family list. Check the foundry, search Google Fonts for a free alternative, or inspect the site's CSS to confirm.",
+    },
+  ];
+
+  for (const section of sections) {
+    const items = classified.filter((c) => c.classification.status === section.status);
+    if (items.length === 0) continue;
+    lines.push(section.title);
+    lines.push('');
+    if (section.note) {
+      lines.push(`_${section.note}_`);
+      lines.push('');
+    }
+    const byFamily = new Map<string, typeof items>();
+    for (const it of items) {
+      const list = byFamily.get(it.face.family) ?? [];
+      list.push(it);
+      byFamily.set(it.face.family, list);
+    }
+    for (const [family, list] of byFamily) {
+      lines.push(`### ${family}`);
+      lines.push('');
+      lines.push(`- ${list[0].classification.reason}`);
+      const fileList = list.flatMap((it) =>
+        it.face.sources
+          .map((s) => s.localFile)
+          .filter((f): f is string => Boolean(f))
+          .map((f) => `files/${f} (${it.face.weight}/${it.face.style})`),
+      );
+      const unique = [...new Set(fileList)];
+      if (unique.length > 0) {
+        lines.push('- Files:');
+        for (const f of unique) lines.push(`  - \`${f}\``);
+      }
+      lines.push('');
+    }
+  }
+
   return lines.join('\n');
 }
