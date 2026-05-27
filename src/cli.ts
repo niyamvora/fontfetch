@@ -27,6 +27,9 @@ Flags:
                       --emit tailwind        Tailwind fontFamily snippet
                       --emit next,tailwind   Both (pair for CSS variables)
                       --emit vite            Vite integration guide
+  --force           Download even if every detected font is served from a
+                    known commercial-foundry CDN. Default behaviour is to
+                    abort early and emit only LICENSE_REVIEW.md.
   -h, --help        Show this help
   -v, --version     Print version
 
@@ -62,6 +65,7 @@ async function main(): Promise<void> {
   }
 
   const headless = args.includes('--headless');
+  const force = args.includes('--force');
 
   // --emit <targets> may be either separated by space or '=' (e.g. --emit=next,tailwind)
   let emit: Exclude<EmitTarget, 'css'>[] = [];
@@ -85,7 +89,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const reservedFlags = new Set(['--headless', '--emit']);
+  const reservedFlags = new Set(['--headless', '--emit', '--force']);
   const positional = args.filter((a: string, i: number) => {
     if (a.startsWith('--')) return false;
     // Skip the value that follows a space-separated --emit
@@ -107,7 +111,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const result = await pull({ url, baseDir: outDir, headless, emit });
+  const result = await pull({ url, baseDir: outDir, headless, emit, force });
 
   log.info('');
   if (result.total === 0) {
