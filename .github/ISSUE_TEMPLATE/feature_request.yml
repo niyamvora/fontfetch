@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest something for the roadmap
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case, not the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would the feature look like?
+      description: CLI flag, output change, new behavior — be concrete.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
