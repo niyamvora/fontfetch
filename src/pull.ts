@@ -115,7 +115,7 @@ export async function pull({ url, baseDir, headless = false }: PullOptions): Pro
   for (const [fontUrl, name] of urlToLocal) {
     const dest = path.join(filesDir, name);
     try {
-      const buf = await fetchBuffer(fontUrl);
+      const buf = await fetchBuffer(fontUrl, { Referer: url });
       await fs.writeFile(dest, buf);
       log.info(`  ✓ ${name}  (${buf.length.toLocaleString()} bytes)`);
       downloaded++;

@@ -11,8 +11,8 @@ export async function fetchText(url: string, headers: Record<string, string> = {
   return await res.text();
 }
 
-export async function fetchBuffer(url: string): Promise<Buffer> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
+export async function fetchBuffer(url: string, headers: Record<string, string> = {}): Promise<Buffer> {
+  const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers } });
   if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }

@@ -105,9 +105,9 @@ In headless mode the browser network listener captures font URLs that bypass our
 - Notes them in the per-site `README.md` with manual `@font-face` instructions
 - Manifest shape changed from `[FontFace, ...]` to `{ faces: [...], orphan_files: [...] }` (pre-1.0, no existing consumers)
 
-### v0.2.2 — Referer-aware font downloads
+### v0.2.2 — Referer-aware font downloads ✓ shipped
 
-`fetchBuffer` in [src/utils.ts](../src/utils.ts) currently sends only `User-Agent`. Many CDNs (and some self-hosted setups) require a `Referer` header matching the page that loaded the CSS — without it, requests 403 even when nothing else is wrong. v0.2.2 threads the originating page URL through `pull` → `fetchBuffer` so every font request carries the correct `Referer` (mirroring what we already do for stylesheet fetches in [src/pull.ts:28](../src/pull.ts#L28)).
+`fetchBuffer` in [src/utils.ts](../src/utils.ts) now accepts an optional `headers` map and `pull.ts` passes `{ Referer: <page url> }` for every font request. Mirrors the browser default and the existing stylesheet-fetch behaviour. Unblocks foundry CDNs and self-hosted setups that 403 without a Referer.
 
 Out of scope: bypassing signed-URL or session-bound protection used by commercial foundries — that's a different problem, addressed proactively in v0.4.
 

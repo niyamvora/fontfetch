@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-27
+
+### Changed
+- **Referer-aware font downloads.** Every font request now sends a `Referer` header set to the originating page URL (the same header browsers send automatically when loading subresources). Many foundry CDNs and some self-hosted setups return 403 without it. Mirrors what we already do for stylesheet fetches.
+- `fetchBuffer` in [src/utils.ts](src/utils.ts) now accepts an optional `headers` parameter, parallel to `fetchText`.
+
+### Notes
+- Out of scope: bypassing signed-URL or session-bound foundry protection. That's a v0.4 concern (fail-fast on known commercial CDNs).
+
 ## [0.2.1] — 2026-05-27
 
 ### Added

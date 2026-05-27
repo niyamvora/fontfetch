@@ -139,6 +139,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.1** — Static `@font-face` extraction, ready-to-use CSS, manifest, README
 - [x] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
 - [x] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
+- [x] **v0.2.2** — Referer-aware font downloads (unblocks foundry CDNs that 403 without a Referer)
 - [ ] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite` / `astro`
 - [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
 - [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style
