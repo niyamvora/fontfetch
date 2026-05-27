@@ -19,6 +19,12 @@ export interface PullOptions {
   headless?: boolean;
   /** Framework targets to emit alongside the default css output. */
   emit?: ('next' | 'tailwind' | 'vite')[];
+  /**
+   * Skip the fail-fast check that aborts when every detected font URL points
+   * at a known commercial-foundry CDN. Useful when the user knows what they're
+   * doing — local mockup work, redownloading their own purchased license, etc.
+   */
+  force?: boolean;
 }
 
 export interface OrphanFile {

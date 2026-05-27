@@ -15,6 +15,7 @@ export async function pull({
   baseDir,
   headless = false,
   emit = [],
+  force = false,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
@@ -118,6 +119,28 @@ export async function pull({
     return { outDir, faces, orphans: [], downloaded: 0, total: 0 };
   }
 
+  const classified = classifyFaces(faces);
+  const licenseSummary = summarize(classified);
+  log.info(
+    `→ License review: ${licenseSummary.open} open / ${licenseSummary.commercial} commercial / ${licenseSummary.unknown} unknown`,
+  );
+
+  // Fail-fast: every face came from a commercial foundry CDN. Most users will
+  // not have a license for these; download them anyway only if --force is set.
+  if (licenseSummary.allCommercial && !force) {
+    await fs.writeFile(
+      path.join(outDir, 'LICENSE_REVIEW.md'),
+      buildLicenseReview(host, classified, licenseSummary),
+    );
+    log.warn('');
+    log.warn(`✗ All ${licenseSummary.commercial} detected font(s) are served from known commercial CDNs.`);
+    log.warn('  Downloading and shipping these without a license violates foundry EULAs.');
+    log.warn(`  Wrote ${path.join(outDir, 'LICENSE_REVIEW.md')} with the breakdown.`);
+    log.warn('  To download anyway (e.g. for a local mockup you have rights to), re-run with --force.');
+    log.warn('');
+    return { outDir, faces, orphans: [], downloaded: 0, total: urlToLocal.size };
+  }
+
   let downloaded = 0;
   for (const [fontUrl, name] of urlToLocal) {
     const dest = path.join(filesDir, name);
@@ -134,15 +157,9 @@ export async function pull({
   await fs.writeFile(path.join(outDir, 'fonts.css'), buildFontsCss(faces));
   await fs.writeFile(path.join(outDir, 'fonts.json'), buildFontsJson(faces, orphans));
   await fs.writeFile(path.join(outDir, 'README.md'), buildReadme(host, faces, downloaded, orphans));
-
-  const classified = classifyFaces(faces);
-  const licenseSummary = summarize(classified);
   await fs.writeFile(
     path.join(outDir, 'LICENSE_REVIEW.md'),
     buildLicenseReview(host, classified, licenseSummary),
-  );
-  log.info(
-    `→ License review: ${licenseSummary.open} open / ${licenseSummary.commercial} commercial / ${licenseSummary.unknown} unknown`,
   );
 
   for (const target of emit) {
