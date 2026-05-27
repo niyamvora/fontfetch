@@ -9,6 +9,7 @@ import { FONT_EXT_RE } from './utils.js';
 import { abs } from './utils.js';
 import { fetchHeadless } from './headless.js';
 import { EMITTERS } from './emitters/index.js';
+import { bucketForUrl } from './provenance.js';
 
 export async function pull({
   url,
@@ -77,18 +78,24 @@ export async function pull({
     }
   }
 
+  const pageHost = new URL(url).hostname;
+
+  // Filenames returned by claim() include the bucket subdir, e.g. "google/Inter-Regular.woff2".
   const urlToLocal = new Map<string, string>();
   const usedNames = new Set<string>();
   const claim = (u: string): string => {
     if (urlToLocal.has(u)) return urlToLocal.get(u)!;
+    const bucket = bucketForUrl(u, pageHost);
     let name = safeFilename(u);
-    if (usedNames.has(name)) {
+    const candidate = `${bucket}/${name}`;
+    if (usedNames.has(candidate)) {
       const h = new URL(u).hostname.replace(/[^a-z0-9]/gi, '_');
       name = `${h}__${name}`;
     }
-    usedNames.add(name);
-    urlToLocal.set(u, name);
-    return name;
+    const final = `${bucket}/${name}`;
+    usedNames.add(final);
+    urlToLocal.set(u, final);
+    return final;
   };
 
   for (const f of faces) {
@@ -142,8 +149,14 @@ export async function pull({
   }
 
   let downloaded = 0;
+  const createdBuckets = new Set<string>();
   for (const [fontUrl, name] of urlToLocal) {
     const dest = path.join(filesDir, name);
+    const bucketDir = path.dirname(dest);
+    if (!createdBuckets.has(bucketDir)) {
+      await fs.mkdir(bucketDir, { recursive: true });
+      createdBuckets.add(bucketDir);
+    }
     try {
       const buf = await fetchBuffer(fontUrl, { Referer: url });
       await fs.writeFile(dest, buf);
