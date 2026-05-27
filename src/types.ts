@@ -16,11 +16,18 @@ export interface FontFace {
 export interface PullOptions {
   url: string;
   baseDir: string;
+  headless?: boolean;
+}
+
+export interface OrphanFile {
+  url: string;
+  file: string;
 }
 
 export interface PullResult {
   outDir: string;
   faces: FontFace[];
+  orphans: OrphanFile[];
   downloaded: number;
   total: number;
 }

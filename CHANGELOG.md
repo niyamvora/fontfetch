@@ -6,6 +6,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-27
+
+### Added
+- **Orphan-file auto-download.** In `--headless` mode, font URLs observed in the browser's network log that aren't referenced by any parsed `@font-face` rule (typically from cross-origin stylesheets) are now downloaded automatically into `files/` and listed under a new `orphan_files` array in `fonts.json`.
+- Per-site `README.md` now includes an "Orphan files" section explaining what they are and how to wire them up manually.
+
+### Changed
+- **`fonts.json` shape**: previously a top-level `FontFace[]` array; now an object `{ faces: FontFace[], orphan_files: { file, url }[] }`. Pre-1.0 — no existing consumers — so no migration path was provided.
+
+## [0.2.0] — 2026-05-27
+
+### Added
+- **`--headless` flag** — Playwright/Chromium mode that catches JS-loaded fonts, late-injected `@font-face` rules, and SPA-rendered content. Merges results with the static parser; dedupes faces across both sources.
+- New `src/headless.ts` module with dynamic import of Playwright (graceful fail if not installed).
+- Network-response listener that also observes font URLs at the browser level (logged in v0.2; auto-downloaded in v0.2.1).
+- Playwright is wired as an **optional peer dependency** — the static path stays zero-runtime-deps.
+
+### Changed
+- CLI help text and README document the new `--headless` flag and install steps.
+- Bumped to v0.2.0.
+
+### Notes
+- Headless mode requires `npm install playwright` + `npx playwright install chromium` once per machine.
+- Static mode is unchanged and still the default.
+
 ## [0.1.1] — 2026-05-27
 
 ### Added

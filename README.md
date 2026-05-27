@@ -1,6 +1,6 @@
 # fontfetch
 
-> Rip every web font from any site into a project-ready folder — with CSS, manifest, and framework configs ready to drop in.
+> Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs ready to drop in.
 
 <p>
   <a href="https://www.npmjs.com/package/fontfetch"><img src="https://img.shields.io/npm/v/fontfetch.svg?style=flat-square" alt="npm" /></a>
@@ -29,7 +29,7 @@ That's it. Real font files, a ready-to-paste `fonts.css` with local URLs, a JSON
 
 ## Why this exists
 
-You're mocking up a design. You see a font you like on a marketing site. You want to use it locally for a few hours — not commit copyright infringement, just iterate fast on a comp.
+You're mocking up a design. You see a font you like on a marketing site. You want to test it locally for a few hours of iteration — not ship it to production, just see how your design feels with that typography.
 
 The existing options aren't great:
 - **`google-webfonts-helper`** — beautiful, but Google Fonts only
@@ -74,13 +74,14 @@ Requires Node 18+.
 ## Usage
 
 ```bash
-fontfetch <url> [outDir]
+fontfetch <url> [outDir] [--headless]
 ```
 
-| Arg | Default | Notes |
+| Arg / Flag | Default | Notes |
 |---|---|---|
-| `<url>` | — | Page to scrape (use the page where the font is actually rendered) |
+| `<url>` | — | Page to download fonts from (use the page where the font is actually rendered) |
 | `[outDir]` | `./downloaded-fonts` | Per-site subfolder is created inside this |
+| `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 
 Examples:
 
@@ -88,7 +89,29 @@ Examples:
 fontfetch https://stripe.com
 fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
+fontfetch https://some-spa.com --headless
 ```
+
+### Headless mode (v0.2)
+
+By default fontfetch is **static** — it fetches the HTML, reads every linked stylesheet and inline `<style>`, and parses `@font-face` rules. That covers ~90% of real-world sites and is fast.
+
+For SPAs that load fonts at runtime, sites that inject `@font-face` blocks via JavaScript after hydration, or pages behind a Cloudflare challenge, pass `--headless`. fontfetch will launch a headless Chromium via Playwright, wait for `document.fonts.ready`, and dump every `@font-face` rule it can see — merged with the static results.
+
+Install Playwright + Chromium once:
+
+```bash
+npm install playwright
+npx playwright install chromium
+```
+
+Then:
+
+```bash
+fontfetch https://example.com --headless
+```
+
+Playwright is an **optional peer dependency** — install it only if you need this mode. The static path runs with zero runtime dependencies.
 
 ## How it works
 
@@ -114,8 +137,8 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 ## Roadmap
 
 - [x] **v0.1** — Static `@font-face` extraction, ready-to-use CSS, manifest, README
-- [ ] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
-- [ ] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
+- [x] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
+- [x] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
 - [ ] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite` / `astro`
 - [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
 - [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style
@@ -125,9 +148,9 @@ Want one of these sooner? Open an issue or vote on existing ones.
 
 ## Responsible use
 
-Font files are software, licensed under EULAs. **fontfetch is for local design exploration, not for shipping commercial fonts you haven't licensed.** A few hours of mockup work in a private project is one thing; bundling Sohne in production without paying Klim is a different thing. We don't gate it — we trust you to know the difference.
+Font files are software, licensed under EULAs. **fontfetch is intended for local design exploration and testing, not for shipping paid fonts you haven't licensed.** Using a font for a few hours of mockup work in a private project is different from bundling it into a production app. We don't gate the tool — we trust you to know the difference and respect foundry licenses.
 
-For shippable fonts, look at the [Google Fonts](https://fonts.google.com) catalog or the [SIL Open Font License](https://openfontlicense.org/) library — these are designed to be self-hosted freely.
+For production use, the [Google Fonts](https://fonts.google.com) catalog and the [SIL Open Font License](https://openfontlicense.org/) library are designed to be self-hosted freely. Every entry in our [pairings registry](./pairings) lists free alternatives for paid fonts.
 
 ## Font pairings registry
 

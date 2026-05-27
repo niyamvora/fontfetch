@@ -1,4 +1,4 @@
-import type { FontFace } from './types.js';
+import type { FontFace, OrphanFile } from './types.js';
 
 export function buildFontsCss(faces: FontFace[]): string {
   const lines: string[] = [
@@ -24,22 +24,30 @@ export function buildFontsCss(faces: FontFace[]): string {
   return lines.join('\n');
 }
 
-export function buildFontsJson(faces: FontFace[]): string {
+export function buildFontsJson(faces: FontFace[], orphans: OrphanFile[] = []): string {
   return JSON.stringify(
-    faces.map((f) => ({
-      family: f.family,
-      weight: f.weight,
-      style: f.style,
-      display: f.display,
-      unicodeRange: f.unicodeRange,
-      files: f.sources.map((s) => ({ file: `files/${s.localFile}`, format: s.format })),
-    })),
+    {
+      faces: faces.map((f) => ({
+        family: f.family,
+        weight: f.weight,
+        style: f.style,
+        display: f.display,
+        unicodeRange: f.unicodeRange,
+        files: f.sources.map((s) => ({ file: `files/${s.localFile}`, format: s.format })),
+      })),
+      orphan_files: orphans.map((o) => ({ file: `files/${o.file}`, url: o.url })),
+    },
     null,
     2,
   );
 }
 
-export function buildReadme(host: string, faces: FontFace[], totalFiles: number): string {
+export function buildReadme(
+  host: string,
+  faces: FontFace[],
+  totalFiles: number,
+  orphans: OrphanFile[] = [],
+): string {
   const byFamily = new Map<string, FontFace[]>();
   for (const f of faces) {
     if (!byFamily.has(f.family)) byFamily.set(f.family, []);
@@ -71,6 +79,19 @@ export function buildReadme(host: string, faces: FontFace[], totalFiles: number)
     }
     for (const [key, n] of variants) {
       lines.push(`- ${key}${n > 1 ? `  _(${n} subset files)_` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (orphans.length > 0) {
+    lines.push('## Orphan files');
+    lines.push('');
+    lines.push(`These ${orphans.length} font file(s) were observed loading in the browser but came from a cross-origin stylesheet whose @font-face rules couldn't be read directly (common for Adobe Typekit and similar services). The files are downloaded into \`files/\` but **not referenced in \`fonts.css\`** — there's no family/weight/style metadata to construct a rule from.`);
+    lines.push('');
+    lines.push('To use them, inspect the live site\'s DevTools to find the matching @font-face declarations, then add them to your CSS pointing at the local files.');
+    lines.push('');
+    for (const o of orphans) {
+      lines.push(`- \`files/${o.file}\` ← ${o.url}`);
     }
     lines.push('');
   }

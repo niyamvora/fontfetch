@@ -1,7 +1,7 @@
 {
   "name": "fontfetch",
-  "version": "0.1.0",
-  "description": "Rip every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
+  "version": "0.2.1",
+  "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
   "type": "module",
   "bin": {
     "fontfetch": "./dist/cli.js"
@@ -52,7 +52,16 @@
   "homepage": "https://github.com/niyamvora/fontfetch#readme",
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "playwright": "^1.49.0",
     "tsup": "^8.3.0",
     "typescript": "^5.6.0"
+  },
+  "peerDependencies": {
+    "playwright": "^1.49.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   }
 }
