@@ -1,7 +1,7 @@
 {
   "name": "fontfetch",
-  "version": "1.0.0",
-  "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
+  "version": "1.2.0",
+  "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, framework configs, terminal-native font inspection, zero-CLS fallback metrics, and DOM-driven subsetting.",
   "type": "module",
   "bin": {
     "fontfetch": "dist/cli.js"
@@ -40,7 +40,15 @@
     "self-hosted-fonts",
     "cli",
     "nextjs",
-    "tailwind"
+    "tailwind",
+    "font-inspect",
+    "font-subset",
+    "subsetting",
+    "fallback-metrics",
+    "size-adjust",
+    "cls",
+    "ofl",
+    "license"
   ],
   "author": "Niyam Vora <niyamvora@gmail.com>",
   "license": "MIT",
@@ -57,10 +65,14 @@
     "@fontfetch/core": "workspace:*"
   },
   "peerDependencies": {
-    "playwright": "^1.49.0"
+    "playwright": "^1.49.0",
+    "subset-font": "^2.5.0"
   },
   "peerDependenciesMeta": {
     "playwright": {
+      "optional": true
+    },
+    "subset-font": {
       "optional": true
     }
   }

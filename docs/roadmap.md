@@ -141,7 +141,7 @@ URL signatures take precedence over family-name match, so 'Inter served from Typ
 
 Not legal advice. Conservative on purpose: false-commercial is a safer failure mode than false-open. Adding a CDN signature is a one-line change in [packages/core/src/license-data.ts](../packages/core/src/license-data.ts).
 
-## v0.5 — hosted webapp
+## v0.5 — hosted webapp (frontend ✓ shipped · backend in flight)
 
 The original v0.5 was a static `preview.html` per site. We're trading that up for something much bigger: a **hosted Next.js webapp at `fontfetch.dev`** that puts every CLI capability behind a designed-for-humans UI.
 
@@ -160,40 +160,71 @@ The original v0.5 was a static `preview.html` per site. We're trading that up fo
    - Size slider, weight selector, italic toggle
    - Letter-spacing + line-height sliders
    - Sample paragraph + glyph grid + numerals/symbols block
-4. **Compare** — pick two fonts (from the same site or different ones), see them side by side with synced controls
-5. **Pairing** — pick one font as headline + another as body, see them composed in a realistic layout. Save the pairing → submits to the [community registry](../pairings)
+4. **Compare** — pick two fonts (from the same site or different ones), see them side by side with synced controls, plus a five-section specimen split (editable hero, paragraph, weight ladder, glyph grid, vital stats)
+5. **Pairing** — pick one font as headline + another as body, see them composed in a realistic editorial layout. Save the pairing → submits to the [community registry](../pairings)
 6. **Bundle download** — ZIP of `files/`, `fonts.css`, `fonts.json`, `LICENSE_REVIEW.md`
 7. **License badge** — `open / commercial / unknown` counts prominent everywhere a font appears
 
-### Stack (planned)
+### Frontend status — ✓ shipped (2026-05)
 
-- Next.js 15 App Router + React 19 + TypeScript
-- **shadcn/ui + Tailwind CSS** for the component layer (well-documented, easy for contributors)
-- Framer Motion / motion.dev for the stepper + preview transitions
-- The current CLI library imported server-side from API routes
-- Streaming progress via Server-Sent Events
-- Headless mode delegated to a small worker (Render / Fly.io / Cloud Run) — Vercel serverless can't host Chromium
-- Bundle storage on Cloudflare R2 (24h TTL)
+The Next.js 16 app in `apps/web/` is feature-complete on the UI side. Routes live for `/`, `/run/[id]`, `/run/[id]/font/[family]`, `/compare`, `/pair`, `/pairings`, and `/about`. Every page is responsive, dark/light themed (Vercel-aligned neutrals + a saffron accent), and renders against mock data in `src/lib/mock.ts` while the backend is wired.
 
-### Why this matters more than `preview.html`
+Highlights:
 
-- A hosted entry point dramatically lowers the activation cost for non-CLI users
-- The compare + pairing tools have no good open-source equivalent (typewolf is paywalled / human-curated)
-- Drives traffic back to the community pairings registry
-- Doubles as the project's marketing page
+- Editable specimen hero on `/` with a corner-mark URL paste card
+- Live progress timeline on `/run/[id]` with motion-animated console + classification stripe (the SSE stream is simulated by a `SIM_PROFILE` array until M2 lands)
+- Foundry-style preview with size / weight / tracking / leading sliders, glyph grid, paragraph specimen, file list, CSS source
+- Five-section compare tool with synced controls
+- Editorial pair tool wired to a "open registry PR" GitHub-issue link
+- Pairings index grid (tag filter shown but not yet functional — see *Next up* below)
 
-### Scope to ship as v0.5
+### Backend status — `/api/pull` SSE wired ✓ (R2 storage + rate-limit pending)
 
-1. URL paste → static-mode pull → progress UI → results page
-2. Single-font preview view
-3. Bundle download
+`POST /api/pull` is a Node-runtime SSE Route Handler that streams real progress events from `@fontfetch/core.pull()`. It enforces a URL guard (https-only, SSRF blocklist with DNS-resolution check) before invoking the pipeline. Tested end-to-end against `rsms.me/inter/` — extracts 5 families and 40 files in under 5s with full classification.
 
-### Deferred to v0.5.x
+Still pending in this milestone:
 
-- Headless-mode toggle (needs the worker; gate behind a "show advanced" flag)
-- Compare mode
-- Pairing tool with registry submission
-- Account-less history (localStorage)
+- Bundle storage: write the per-session `files/`, `fonts.css`, `fonts.json` to S3 (or R2 — TBD on the AWS-native vs Cloudflare-native call given we're on ECS) and return a signed download URL on the `result` event
+- Upstash Redis rate-limit (10 pulls/hour/IP)
+- A persisted-session story so direct deep-links to `/run/[id]` and `/run/[id]/font/[family]` work after a page refresh (today they show a "not in memory" empty state)
+
+### Stack (shipped)
+
+- **Next.js 16** App Router + React 19.2 + TypeScript strict + Turbopack (production-default in 16)
+- **Tailwind CSS v4** with OKLCH design tokens; no `tailwind.config.*` file
+- **shadcn/ui** (`radix-nova` preset) — copy-paste primitives, no design-system wrapper layer
+- **next-themes** — dark default, system-aware
+- **motion.dev** — exponential ease-out only
+- **Zustand** — staged for cross-tree state when the backend lands
+- **Geist + Geist Mono** via `next/font/google`
+- Headless mode (when M5 lands) delegated to a sidecar service running Playwright + Chromium in the same AWS ECS Fargate cluster as the webapp
+- Bundle storage on Amazon S3 (or Cloudflare R2 — the ECS deployment doesn't lock us in) with a 24h object-lifecycle policy and signed download URLs
+
+### Next up — v0.5 close-out
+
+The frontend and the pull pipeline both work. The remaining gap is that `/compare` and `/pair` still draw from a hardcoded catalog instead of from the families the user actually pulls — fix that first, then close the storage + deploy story.
+
+Detailed plan lives in the internal `webapp-plan.md`; the public-facing headlines:
+
+1. **Make `/compare` and `/pair` dynamic** — store the last ~10 pulled `ResultSession` objects in localStorage; the picker becomes `[your pulls] [popular open] [search]`. Removes the "pull then dead-end" feeling.
+2. **Bundle storage** — `s3://<bucket>/<sessionId>/...` with a 24h lifecycle; presigned URL on the `bundle_ready` SSE event; wires into the existing `BundleDownload` button.
+3. **Redis session manifest** — store `{ id, url, families }` in Upstash Redis with a 24h TTL; new `GET /api/session/[id]` fallback so deep-links and refreshes work post-Zustand-cache-miss.
+4. **Rate limit** — Upstash Redis per-IP token bucket, 10 pulls/hr/IP.
+5. ~~`error.tsx` + `loading.tsx`~~ ✓ shipped for `/run/[sessionId]`
+6. ~~`prefers-reduced-motion`~~ ✓ shipped via the `useReducedMotion` hook on the run-stepper
+7. ~~Mobile nav menu~~ ✓ shipped — hamburger in `mobile-nav.tsx`
+8. ~~Empty + error states on `/run/[id]`~~ ✓ shipped (loading skeleton, error boundary, "nothing to download")
+9. **`noindex` on `/run/*`** via metadata
+10. ~~Pairings tag filter functional~~ ✓ shipped — registry loads from `pairings/*.json` at build time, tag counts + `?tag=` URL state
+11. **ECS deploy** — Dockerfile from `apps/web` standalone output → ECR → Fargate behind ALB at `fontfetch.dev`. Worker + API services join the same cluster later.
+12. **`security-review` skill pass** before exposing `/api/pull` publicly
+
+### Stretch — after the soft launch
+
+- Headless mode toggle (needs `apps/worker`)
+- Account-less history strip on `/` via localStorage (already wired in `recent-runs.ts`; just needs the real session IDs)
+- Auth + saved sessions (`apps/api/` — see v0.7 below)
+- OG image generation per pull (viral wedge; needs infra)
 
 ## v1.0 — monorepo restructure ✓ shipped
 
@@ -240,6 +271,157 @@ downloaded-fonts/example.com/
 
 Same first-match-wins precedence as the license heuristic. Makes the "free vs licensed" split visible in the filesystem — useful when sharing a bundle with a teammate ("the google/ folder is safe to ship; the rest needs review"). Breaking change to output paths; pre-1.0, no published consumers.
 
+## v1.1 — OSS quick wins (planned)
+
+Post-1.0 the CLI is structurally stable. v1.1 is a batch of small, individually-tweetable additions that close gaps every webfont user hits. Each item is < 1 day of work, ships in one minor release, and either fills a competitor gap or addresses a documented community pain point.
+
+### Defaults that should already be there
+
+- **`font-display: swap` in every emitted `@font-face`.** Currently absent. Sensible default; matches what `next/font` and Fontsource ship. The single most common Lighthouse-perf complaint about hand-rolled `@font-face` blocks is "I forgot font-display".
+- **Computed `unicode-range` per file** in emitted `@font-face`. Read the cmap via `fontkit` once per font, emit a tight range. Saves bandwidth on multi-script sites and matches the Google Fonts splitting behaviour `google-webfonts-helper` is famous for.
+- **`<link rel="preload" as="font" type="font/woff2" crossorigin>`** snippets in the emitted CSS comment block. Foot-gun-ridden enough that having it copy-pasteable next to the `@font-face` rules is high-value.
+- **`--json` on every command.** Stable machine output unblocks every downstream integration (GH Action, Raycast, CI wrappers).
+
+### New `--emit` targets
+
+`webfont-dl` (333 stars, our direct competitor) ships zero framework emitters. Every new emitter is a separate SEO surface and a separate ride-along audience.
+
+- **`--emit astro`** — Astro 4+ font config (`astro:assets` story is muddled; clean local-fonts block is welcome).
+- **`--emit svelte`** — SvelteKit `+layout.svelte` + `app.css` pattern.
+- **`--emit nuxt`** — Nuxt 4 + `@nuxt/fonts` (594 stars, active) interop. Generate a config that `@nuxt/fonts` consumes from local files rather than fetching from Google.
+- **`--emit remix`** — Remix `links()` export + `app/styles/fonts.css`.
+- **`--emit qwik`** — emit into `src/global.css` with `font-display: optional` per Qwik's perf gospel.
+- **`--emit bunny`** — single-line snippet pointing at bunny.net Fonts (the quietly-winning GDPR-safe Google Fonts proxy) for the families that have a Bunny equivalent. Captures real workflow with near-zero code.
+
+### Pairings registry — second-order value
+
+The registry is mature data; we only need to extract more from it.
+
+- **`fontfetch lookup <family>`** — reverse-search the local pairings: *"which sites use Inter Display?"*. Doubles the value of `pairings/` for free.
+- **`fontfetch suggest <family>`** — given an extracted family, surface the registered OFL alternative(s) and the sites that proved the swap works in production. The "Söhne → Inter" pattern becomes a first-class CLI output.
+
+### License signal upgrade
+
+Today the classifier is URL-signature first, catalog-fallback second. v1.1 reads the binary too:
+
+- **Name-table license fields** (IDs 13 + 14) via `fontkit`. A binary that self-declares `OFL-1.1` with a license URL boosts the classification confidence; a binary that declares a proprietary EULA flips an unknown to commercial.
+- **RFN clause detection** — the OFL Reserved Font Name clause is the most-misunderstood OSS licence requirement in the space. Surface it explicitly in `LICENSE_REVIEW.md` per family.
+
+## v1.2 — flagship "inspect + subset + fallback" release ✓ shipped (2026-05-28)
+
+v1.2 is the **launch beat**. Three features ship together as one HN-front-page-worthy moment. Tag line: *"fontfetch 1.2: extract → inspect → ship. Zero CLS, zero unused glyphs, zero Python."*
+
+### `fontfetch inspect <file>` — the missing terminal Wakamai Fondue
+
+`wakamaifondue.com` is the gold standard for single-font inspection but is browser-only. `fontkit` (1.6k stars, last push Aug 2024 — semi-stale) is the underlying library but has no first-class CLI. There is no good terminal `inspect` command for woff2 files in the entire ecosystem. We fill it.
+
+```
+$ npx fontfetch inspect Inter-Variable.woff2
+Inter Variable                                    96.4 KB woff2
+─────────────────────────────────────────────────────────────
+Glyphs       2,548          Family         Inter
+Format       woff2          Subfamily      Regular
+Embedded     Yes            Vendor         Rasmus Andersson
+Axes         wght 100-900   slnt 0 to -10
+Features     calt liga dlig ss01 ss02 ss03 cv01 cv02 tnum lnum onum
+Scripts      latn cyrl grek vietn
+License      OFL-1.1 (from name table id 13)
+             https://github.com/rsms/inter
+```
+
+Output is screenshot-able by design. Glyph grid sample row is optional via `--glyphs`.
+
+### `--fallback` — kill CLS in one flag
+
+Today fontfetch emits the `@font-face` rules but says nothing about CLS. `fontaine` (1.9k stars, active) and Next's `next/font` solve this for their own ecosystems via `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override`, but **no framework-agnostic CLI emits a CLS-killing fallback block today**. We do.
+
+```
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107.4%;
+  ascent-override: 90%;
+  descent-override: 22.4%;
+  line-gap-override: 0%;
+}
+```
+
+Compute the four overrides per family using `capsize` (1.7k stars, the metrics-source-of-truth library `fontaine` and Next both depend on). Pick the closest system fallback per family heuristic (sans → Arial, serif → Times New Roman, mono → Courier New). Emit one fallback `@font-face` per real family, then update `font-family` declarations to `'Inter', 'Inter Fallback', sans-serif`.
+
+Tagline: **"Zero-CLS webfonts in one command, no framework required."**
+
+### `fontfetch subset <url>` — extract + use-driven subset in one pass
+
+`glyphhanger` (878 stars, last push Feb 2024 — going stale) is the canonical answer for "scan a page, subset the fonts to the codepoints actually rendered." It requires a Python `fonttools` install, ships its own Puppeteer pipeline, and hasn't shipped a feature in two years. We already have a Playwright pass for `--headless`; layering a DOM glyph scrape on top costs us nothing structurally.
+
+```
+$ npx fontfetch subset https://stripe.com
+… extracts as today
+… scans rendered DOM for unique codepoints (3,212 of 8,941 supported)
+… subsets each woff2 via subset-font (harfbuzzjs)
+✓ files/google/Inter-Variable.subset.woff2          14.2 KB (was 96.4 KB)
+✓ files/commercial/Sohne-Buch.subset.woff2          11.8 KB (was 78.0 KB)
+```
+
+Pure Node, WASM harfbuzz, no Python. Pairs with `--emit next/tailwind/...` so the subsetted files are what the framework config points to.
+
+### Why these three together
+
+Individually each is a single tweet. Together they're a complete narrative: *"You can extract any site's fonts (already shipped), inspect what you got (new), subset to what you actually use (new), emit a zero-CLS framework config (new + already shipped). Four seconds, one command."* That's a credible Show HN.
+
+### v1.2 shipping notes
+
+- `fontfetch inspect <file>` works on any woff2/woff/ttf/otf via the bundled `fontkit` dependency. RFN clause detection is layered on top of OFL detection. No CLI subcommand existed for this in the entire OSS landscape before today.
+- `--fallback` on the default `pull` command emits `<Family> Fallback` faces using `@capsizecss/unpack` to read the binary's metrics. Default fallback is `Arial` (sans) / `Times New Roman` (serif) / `Courier New` (monospace) chosen by family-name heuristic. Best-effort and pure CSS — no JS runtime.
+- `fontfetch subset <url>` chains the existing Playwright `--headless` pass with `subset-font` (optional peer dep, harfbuzzjs WASM). The page's rendered text — including `::before`/`::after` `content` for icon fonts — drives the codepoint set. Emits siblings as `<original>.subset.woff2`.
+- Also folded in from v1.1: `font-display: swap` default on emitted faces and a `<link rel=preload>` hint header at the top of `fonts.css`.
+- Test surface grew from 54 → 76 vitest cases (new: `inspect`, `fallback`, `emit-defaults`). All green.
+
+The remaining v1.1 items (extra `--emit` targets, `fontfetch lookup` / `suggest`, full RFN-aware classifier upgrade, name-table license cross-ref) will land in **v1.2.x** point releases as they don't justify their own minor bump.
+
+## v1.3 — distribution surface (planned)
+
+Once v1.2 lands, the next gain is showing up where users already are. Each item below uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems.
+
+- **`fontfetch-action` GitHub Action.** PR comments on font drift: *"`apps/web/app/page.tsx` references a new `@font-face` — fetched it, classified `Söhne` as commercial, +180 KB. Consider one of these OFL alternatives from the pairings registry."* Distribution flywheel; every adopting repo is a starred-adjacent signal.
+- **`fontfetch diff <url1> <url2>`.** Detect font drift between two URLs (the staging-vs-prod use case, the rebrand-detect use case, the competitor-watch use case). The "Stripe rebrand: dropped Söhne, added Inter Display" tweet writes itself.
+- **`fontfetch audit <url> --max-kb 100 --no-commercial`.** Drop-in CI command; non-zero exit if the homepage adds a commercial font or busts a budget. Pairs with the GH Action.
+- **`fontfetch budget` for CI.** Per-family size budgets with `--json` for downstream tools (Lighthouse-CI lookalike, size-limit style).
+- **Raycast extension.** *"fontfetch &lt;url&gt; → CSS to clipboard."* Designer-dev crossover audience; Raycast extensions show up in product roundups.
+- **Homebrew tap.** `brew install fontfetch`. Once we cross ~500 stars, distribution maintenance pays off.
+- **GDPR mode (`--gdpr-report`)**. Scan a URL, list every third-party font request (Google Fonts CDN, Adobe Fonts, Hatch, MyFonts CDN), output a `GDPR.md` checklist with one-line remediation per family. Direct ride-along on the German court ruling SEO wave.
+- **Variable-font collapse hint.** When the extractor finds 9 static weight files plus a `.var.woff2` from the same family on the same CDN, recommend the variable file with a 1-line diff of the bundle size you'd save.
+- **`@fontfetch/registry` typed package.** Publish a thin npm wrapper around `pairings/*.json` so third-party tooling (font pickers, design plugins) can consume the registry with autocomplete and types. Turns the registry into a real ecosystem primitive.
+
+## Package layout (post v1.2)
+
+The current monorepo holds `@fontfetch/core` and `fontfetch` (CLI). v1.2+ adds slim sibling packages — each consumable on its own but composed under the single `npx fontfetch` verb:
+
+```
+packages/
+├── core/        existing — extraction + classification + emitters + pull()
+├── cli/         existing — the published `fontfetch` binary
+├── inspect/     new — name-table / axes / features / license-from-binary
+├── subset/      new — Puppeteer DOM scrape + harfbuzzjs subset
+├── fallback/    new — capsize-driven CLS-killing @font-face emitter
+└── registry/    new — typed access to pairings/*.json
+```
+
+`fontfetch` CLI re-exports each sub-command (`fontfetch inspect`, `fontfetch subset`, `fontfetch fallback`, `fontfetch lookup`). The 90% of users only ever type `npx fontfetch`; the 10% who want primitives import from `@fontfetch/inspect` directly.
+
+## v0.7 — accounts + saved sessions (planned)
+
+Out-of-scope for v0.5 ship but mapped here so the architecture can absorb it without a rewrite.
+
+- New workspace `apps/api/` for the backend (Hono or Next.js Route Handlers, Postgres or Turso for storage)
+- OAuth sign-in (GitHub first, Google later)
+- Per-user history of pulls (replaces the localStorage "recent runs" strip on `/`)
+- "Save this pairing to my collection" on `/pair`, separate from the public registry submission
+- Bundle TTL extended from 24h to "until the user deletes it" for signed-in users
+- Stripe-gated higher rate limits when traffic patterns warrant it (not before)
+
+Auth + storage live in the **private** fontfetch_fullstack repo only — they are not part of the open-source surface. The CLI and `@fontfetch/core` stay account-free forever.
+
 ## Stretch — programmatic API
 
 Export a Node API for use in scripts / build steps:
@@ -253,6 +435,11 @@ Useful for CI flows that auto-regenerate fonts from a design system docsite.
 
 ## Not on the roadmap
 
-- Font modification / transformation. Different scope, different audience, legally murkier — separate tool if anyone wants to build it.
-- Bypassing DRM, auth walls, or font-as-a-service streaming protocols.
-- GUI. Maybe a webapp companion eventually, but not a desktop GUI.
+- **Font modification / transformation.** Different scope, different audience, legally murkier — separate tool if anyone wants to build it.
+- **Bypassing DRM, auth walls, or font-as-a-service streaming protocols.**
+- **GUI.** Maybe a webapp companion eventually, but not a desktop GUI.
+- **Hosting / mirroring / proxying commercial fonts.** OFL fonts in `pairings/` reference free alternatives by name; we do not rehost Söhne / GT America / Inter Display / etc. Extract for the user's own licence-compliant use and stop there.
+- **ML font classification / "vibe of a font".** Fontjoy died of this; bad ROI for an OSS tool that should be deterministic.
+- **A general font registry that competes with Fontsource on Google Fonts.** Fontsource wins that lane. Our edge is arbitrary URLs, not the Google catalog.
+- **Reverse lookup from images** (WhatTheFont clone). Requires a vision model and hosted inference — a different product, not a font extractor.
+- **Building our own subsetter.** v1.2 `fontfetch subset` wraps `subset-font` / `harfbuzzjs`; we don't reinvent harfbuzz.

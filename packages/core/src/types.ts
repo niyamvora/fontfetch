@@ -32,6 +32,18 @@ export interface PullOptions {
    * compatible — pull() behaves identically with or without it.
    */
   onProgress?: (event: PullProgressEvent) => void;
+  /**
+   * Emit CLS-killing `@font-face` fallback blocks alongside the primary
+   * faces. For each detected family we read the downloaded binary's metrics
+   * via capsize/unpack, pick a generic system fallback (Arial / Times New
+   * Roman / Courier New) based on the family name, and emit a `<family>
+   * Fallback` face with `size-adjust` / `ascent-override` /
+   * `descent-override` / `line-gap-override` matched to the primary's
+   * metrics. The emitted `fonts.css` then chains `'<Family>', '<Family>
+   * Fallback', <generic>` so the browser swaps between visually identical
+   * boxes during the font load.
+   */
+  fallback?: boolean;
 }
 
 /**

@@ -6,16 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-05-28
+
+The "inspect + subset + fallback" release. Three flagship subcommands ship together: `fontfetch inspect` (terminal Wakamai Fondue), the `--fallback` flag (capsize-driven zero-CLS `@font-face` blocks), and `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset). Plus a batch of v1.1 quick wins folded in — `font-display: swap` default, `<link rel=preload>` hint emission, and a structured `onProgress` callback on `pull()` for non-CLI consumers.
+
 ### Added
-- **`pull()` accepts an optional `onProgress` callback** in `PullOptions`. Receives structured `PullProgressEvent` updates as the pipeline runs — `phase` transitions (`fetch_html` / `parse_css` / `extract_faces` / `download` / `classify` / `done`), per-stylesheet `css_fetched` / `css_failed`, `faces_found` with face + file counts, per-file `file_downloaded` / `file_failed`, `orphan`, `classified` totals, `aborted_all_commercial`, and a terminal `done`. Designed for non-CLI consumers (webapps, build tools) that want to stream progress to a UI instead of scraping log lines.
-- `PullProgressEvent` exported as a public type from `@fontfetch/core`.
+- **`fontfetch inspect <file>` — terminal-native font inspector.** Reads any woff2/woff/ttf/otf file via `fontkit` and prints a column-aligned report: glyph count, format, units-per-em, variation axes, OpenType features, family/subfamily/PostScript names, vendor, copyright, and an SIL OFL detection that includes Reserved Font Name (RFN) clause awareness. Fills the gap between `wakamaifondue.com` (browser-only) and the canonical `fontkit` library (no first-class CLI).
+- **`--fallback` flag on the default `pull` command.** For every extracted family we read the binary's metrics via `@capsizecss/unpack`, pick a system fallback (Arial / Times New Roman / Courier New) based on family-name heuristics, and emit a `<Family> Fallback` `@font-face` block with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched to the primary's metrics. Output is framework-agnostic — works in any CSS, Tailwind v4, Next.js without `next/font`, Astro, plain HTML, etc. Solves the same CLS problem `fontaine` solves but without the Nuxt/Vite framework coupling.
+- **`fontfetch subset <url>` — render-aware subsetting in one command.** Runs the full extraction pipeline, then loads the page in headless Chromium, walks every visible text node plus `::before`/`::after` pseudo-element `content`, and subsets each downloaded font to the unique codepoints actually rendered. Wraps `subset-font` (a WASM harfbuzzjs wrapper) so it works pure-Node — no Python `fonttools` install, unlike `glyphhanger`. Outputs siblings as `<original>.subset.woff2`.
+- **`<link rel="preload" as="font" type="font/woff2" crossorigin>` hint block** at the top of every emitted `fonts.css`, one per primary cut. Saves users from the most common preload foot-gun (forgetting the `crossorigin` attribute causes the browser to double-download the font).
+- **`pull()` accepts an optional `onProgress` callback** in `PullOptions`. Structured `PullProgressEvent` updates as the pipeline runs — `phase` transitions, per-stylesheet `css_fetched` / `css_failed`, `faces_found` with face + file counts, per-file `file_downloaded` / `file_failed`, `orphan`, `classified` totals, `aborted_all_commercial`, and a terminal `done`. Designed for non-CLI consumers (the fontfetch.dev webapp streams these as SSE events).
+- New public exports on `@fontfetch/core`: `inspect`, `formatInspectionReport`, `computeFallback`, `formatFallbackCss`, `buildFallbacksForDir`, `pickGenericFallback`, `subset`, `buildPreloadHints`. Types: `InspectionReport`, `VariationAxis`, `FallbackMetrics`, `FallbackGenericFamily`, `SubsetReport`, `SubsetFileReport`, `SubsetOptions`, `PullProgressEvent`.
 
 ### Changed
-- Nothing. The CLI ignores `onProgress` and keeps logging to stdout exactly as before. The change is purely additive — existing consumers see no behaviour difference.
+- **Emitted `fonts.css` now defaults to `font-display: swap`** on every face when the source rule does not set one. Matches what `next/font` and Fontsource ship; eliminates the most common Lighthouse-perf complaint about hand-rolled `@font-face` blocks. An explicit `font-display` in the source rule is still preserved untouched.
+- `buildFontsCss()` accepts an optional second arg (`{ preloadHints, extraBlocks }`) for the new comment header and fallback block emission. Backward-compatible — calling with one argument behaves exactly as before.
+
+### Dependencies
+- New runtime deps on `@fontfetch/core`: `fontkit ^2.0.4`, `@capsizecss/core ^4.1.3`, `@capsizecss/unpack ^4.0.0`. Required for `inspect` and `--fallback`.
+- New **optional peer dependency**: `subset-font ^2.5.0` (the harfbuzzjs WASM wrapper). Same opt-in shape as `playwright` — `fontfetch subset` prints a clear `npm install subset-font` hint if it isn't on the resolver path.
 
 ### Notes
-- 54/54 vitest cases unchanged.
-- This release is staged on `main` but not yet bumped on npm. When published it'll go out as **1.1.0** — minor bump, additive surface.
+- 76/76 vitest cases pass. New tests cover `inspect` formatter, fallback heuristic + CSS shape, and the `font-display: swap` / `unicode-range` / preload-hint defaults in `buildFontsCss`.
+- The published CLI bundle grows from ~250 KB to ~2.2 MB because `fontkit` is sizeable. Acceptable for a Node CLI; not a browser concern.
+- Subset/fallback heuristics that ship in this minor release are best-effort. v1.2.1 will refine the monospace detection (currently name-only; needs the `post.isFixedPitch` flag) and the language-aware unicode-range presets.
 
 ## [1.0.0] — 2026-05-27
 

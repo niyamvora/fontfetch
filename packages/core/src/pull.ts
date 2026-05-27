@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from './parse.js';
-import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview } from './emit.js';
+import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints } from './emit.js';
 import { classifyFaces, summarize } from './license.js';
 import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from './utils.js';
 import type { CssSource, OrphanFile, PullOptions, PullResult } from './types.js';
@@ -10,6 +10,7 @@ import { abs } from './utils.js';
 import { fetchHeadless } from './headless.js';
 import { EMITTERS } from './emitters/index.js';
 import { bucketForUrl } from './provenance.js';
+import { buildFallbacksForDir } from './fallback.js';
 
 export async function pull({
   url,
@@ -18,6 +19,7 @@ export async function pull({
   emit = [],
   force = false,
   onProgress,
+  fallback = false,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
@@ -201,7 +203,24 @@ export async function pull({
     }
   }
 
-  await fs.writeFile(path.join(outDir, 'fonts.css'), buildFontsCss(faces));
+  let fallbackBlocks: string[] = [];
+  if (fallback) {
+    log.info('→ Computing CLS-killing fallback metrics (capsize)');
+    const { css, count, errors } = await buildFallbacksForDir(filesDir);
+    if (count > 0) {
+      fallbackBlocks = [css];
+      log.info(`  + ${count} fallback @font-face block(s) generated`);
+    }
+    for (const err of errors) {
+      log.warn(`  ! fallback skipped for ${path.basename(err.file)}: ${err.reason}`);
+    }
+  }
+
+  const preloadHints = buildPreloadHints(faces);
+  await fs.writeFile(
+    path.join(outDir, 'fonts.css'),
+    buildFontsCss(faces, { preloadHints, extraBlocks: fallbackBlocks }),
+  );
   await fs.writeFile(path.join(outDir, 'fonts.json'), buildFontsJson(faces, orphans));
   await fs.writeFile(path.join(outDir, 'README.md'), buildReadme(host, faces, downloaded, orphans));
   await fs.writeFile(

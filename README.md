@@ -74,7 +74,9 @@ Requires Node 18+.
 ## Usage
 
 ```bash
-fontfetch <url> [outDir] [--headless]
+fontfetch <url> [outDir] [--headless] [--fallback] [--emit ...] [--force]
+fontfetch inspect <font-file>
+fontfetch subset <url> [outDir]
 ```
 
 | Arg / Flag | Default | Notes |
@@ -82,6 +84,9 @@ fontfetch <url> [outDir] [--headless]
 | `<url>` | — | Page to download fonts from (use the page where the font is actually rendered) |
 | `[outDir]` | `./downloaded-fonts` | Per-site subfolder is created inside this |
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
+| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2) |
+| `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `css` (default) |
+| `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
 
 Examples:
 
@@ -90,6 +95,27 @@ fontfetch https://shinobidata.com
 fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless
+fontfetch https://stripe.com --headless --fallback --emit next
+fontfetch inspect ./downloaded-fonts/example.com/files/google/Inter-Variable.woff2
+fontfetch subset https://stripe.com
+```
+
+### What's new in v1.2 — inspect, subset, zero-CLS fallback
+
+Three subcommands shipped together so the whole pipeline becomes *extract → inspect → ship*:
+
+- **`fontfetch inspect <file>`** — terminal-native font inspector. Reads any woff2/woff/ttf/otf and prints a column-aligned report: glyph count, format, units-per-em, variation axes, OpenType features, vendor / designer / copyright, and an SIL OFL detection that flags the Reserved Font Name (RFN) clause when present. Wakamai Fondue, but in your terminal.
+
+- **`--fallback`** — for every extracted family, fontfetch now reads the binary's metrics via [capsize](https://github.com/seek-oss/capsize) and emits a `<Family> Fallback` `@font-face` block with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched to a system fallback (Arial / Times New Roman / Courier New, picked by family-name heuristic). The emitted `fonts.css` chains `'<Family>', '<Family> Fallback', <generic>` so the browser swaps between visually identical boxes during the font load. Solves the same CLS problem `next/font` and `fontaine` solve — but framework-agnostic, plain CSS only.
+
+- **`fontfetch subset <url>`** — runs the full extraction, then loads the page in headless Chromium, walks every visible text node plus `::before`/`::after` `content`, and subsets each font down to the unique codepoints actually rendered. Uses `subset-font` (a WASM wrapper around harfbuzzjs) so it runs pure-Node — no Python `fonttools` install required, unlike `glyphhanger`. Outputs siblings as `<original>.subset.woff2`. Common case: 30-90% smaller webfonts in one command.
+
+Also bundled in 1.2: every emitted `@font-face` now defaults to `font-display: swap`, and `fonts.css` carries a copy-pasteable `<link rel="preload" as="font" type="font/woff2" crossorigin>` hint header so you don't have to remember the `crossorigin` attribute (the most common preload foot-gun).
+
+`subset` needs `subset-font` (optional peer dependency, the harfbuzzjs WASM wrapper):
+
+```bash
+npm install subset-font
 ```
 
 ### License review (v0.4)
@@ -173,12 +199,15 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 
 ## How it compares
 
-| Tool | Any URL | JS-rendered fonts | Framework config emit |
-|---|---|---|---|
-| `google-webfonts-helper` | Google Fonts only | n/a | ✗ |
-| `webfont-dl` | Needs CSS URL | ✗ | ✗ |
-| Chrome extensions | ✓ (manual) | ✓ | ✗ |
-| **`fontfetch`** | ✓ | _v0.2_ | _v0.3_ |
+| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Zero-CLS fallback |
+|---|---|---|---|---|---|---|---|
+| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✗ |
+| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | ✗ |
+| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✓ (Nuxt/Vite only) |
+| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ |
+| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite | ✓ | ✓ (Node, no Python) | ✓ framework-agnostic |
 
 ## Roadmap
 
@@ -190,6 +219,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.4** — License heuristic + `LICENSE_REVIEW.md` + fail-fast on all-commercial sites (`--force` to bypass)
 - [x] **v0.6** — Provenance grouping: output split into `google/` / `adobe-typekit/` / `commercial/` / `open-cdn/` / `self-hosted/`
 - [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.md#v10--monorepo-restructure--shipped): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
+- [x] **v1.2** — [Inspect + subset + fallback release](./docs/roadmap.md#v12--flagship-inspect--subset--fallback-release--shipped-2026-05-28): `fontfetch inspect` (terminal Wakamai Fondue), `--fallback` (zero-CLS `@font-face` blocks via capsize), `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset, no Python). Plus `font-display: swap` default and preload-hint header on every emitted `fonts.css`.
 - [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.

@@ -61,3 +61,17 @@ export type {
 } from './emitters/index.js';
 
 export { log } from './utils.js';
+
+export { inspect, formatInspectionReport } from './inspect.js';
+export type { InspectionReport, VariationAxis } from './inspect.js';
+
+export {
+  computeFallback,
+  formatFallbackCss,
+  buildFallbacksForDir,
+  pickGenericFallback,
+} from './fallback.js';
+export type { FallbackMetrics, FallbackGenericFamily } from './fallback.js';
+
+export { subset } from './subset.js';
+export type { SubsetReport, SubsetFileReport, SubsetOptions } from './subset.js';
