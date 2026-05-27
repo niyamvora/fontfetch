@@ -1,57 +1,22 @@
 {
-  "name": "fontfetch",
-  "version": "0.6.0",
-  "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
+  "name": "fontfetch-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo root for fontfetch — the CLI, the shared core library, and the future fontfetch.dev webapp.",
   "type": "module",
-  "bin": {
-    "fontfetch": "dist/cli.js"
-  },
-  "main": "./dist/cli.js",
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "start": "node ./dist/cli.js",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "build": "pnpm -r --filter=./packages/* run build",
+    "dev": "pnpm -r --parallel --filter=./packages/* run dev",
+    "test": "pnpm -r --filter=./packages/* run test",
+    "typecheck": "pnpm -r run typecheck",
+    "clean": "pnpm -r run clean && rm -rf node_modules/.cache",
+    "cli": "pnpm --filter fontfetch start"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "pnpm": ">=9"
   },
-  "keywords": [
-    "font",
-    "fonts",
-    "webfont",
-    "web-font",
-    "font-face",
-    "scrape",
-    "scraper",
-    "downloader",
-    "google-fonts",
-    "self-host",
-    "self-hosted-fonts",
-    "cli",
-    "nextjs",
-    "tailwind"
-  ],
-  "author": "Niyam Vora <niyamvora@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/niyamvora/fontfetch.git"
-  },
-  "bugs": {
-    "url": "https://github.com/niyamvora/fontfetch/issues"
-  },
-  "homepage": "https://github.com/niyamvora/fontfetch#readme",
+  "packageManager": "pnpm@9.12.0",
   "devDependencies": {
     "@types/node": "^22.10.0",
     "playwright": "^1.49.0",
@@ -59,12 +24,11 @@
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
-  "peerDependencies": {
-    "playwright": "^1.49.0"
+  "author": "Niyam Vora <niyamvora@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niyamvora/fontfetch.git"
   },
-  "peerDependenciesMeta": {
-    "playwright": {
-      "optional": true
-    }
-  }
+  "homepage": "https://github.com/niyamvora/fontfetch#readme"
 }

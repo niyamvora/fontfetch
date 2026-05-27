@@ -107,7 +107,7 @@ In headless mode the browser network listener captures font URLs that bypass our
 
 ### v0.2.2 — Referer-aware font downloads ✓ shipped
 
-`fetchBuffer` in [src/utils.ts](../src/utils.ts) now accepts an optional `headers` map and `pull.ts` passes `{ Referer: <page url> }` for every font request. Mirrors the browser default and the existing stylesheet-fetch behaviour. Unblocks foundry CDNs and self-hosted setups that 403 without a Referer.
+`fetchBuffer` in [packages/core/src/utils.ts](../packages/core/src/utils.ts) now accepts an optional `headers` map and `pull.ts` passes `{ Referer: <page url> }` for every font request. Mirrors the browser default and the existing stylesheet-fetch behaviour. Unblocks foundry CDNs and self-hosted setups that 403 without a Referer.
 
 Out of scope: bypassing signed-URL or session-bound protection used by commercial foundries — that's a different problem, addressed proactively in v0.4.
 
@@ -139,7 +139,7 @@ URL signatures take precedence over family-name match, so 'Inter served from Typ
 
 **Fail-fast on all-commercial sites.** When every detected face classifies as commercial, fontfetch aborts before downloading, emits only `LICENSE_REVIEW.md`, and tells the user to pass `--force` if they have a legitimate reason. Mirrors `npm install --force` semantics.
 
-Not legal advice. Conservative on purpose: false-commercial is a safer failure mode than false-open. Adding a CDN signature is a one-line change in [src/license-data.ts](../src/license-data.ts).
+Not legal advice. Conservative on purpose: false-commercial is a safer failure mode than false-open. Adding a CDN signature is a one-line change in [packages/core/src/license-data.ts](../packages/core/src/license-data.ts).
 
 ## v0.5 — hosted webapp
 
@@ -194,6 +194,35 @@ The original v0.5 was a static `preview.html` per site. We're trading that up fo
 - Compare mode
 - Pairing tool with registry submission
 - Account-less history (localStorage)
+
+## v1.0 — monorepo restructure ✓ shipped
+
+The repo is now a pnpm-workspaces monorepo with two packages and two reserved
+app slots. No CLI behaviour changes; this is the structural foundation the
+v0.5 webapp and v0.5.x headless worker plug into without a second
+restructure.
+
+```
+fontfetch/
+├── packages/
+│   ├── core/          @fontfetch/core — shared pipeline (workspace-only)
+│   └── cli/           `fontfetch` — published npm package, single bundled file
+├── apps/
+│   ├── web/           Reserved for fontfetch.dev (v0.5)
+│   └── worker/        Reserved for the Playwright headless service (v0.5.x)
+└── pairings/, docs/, …
+```
+
+The published `fontfetch` package is unchanged from a consumer's perspective:
+`tsup` inlines `@fontfetch/core` into the CLI's `dist/cli.js`, so npm users
+see zero workspace plumbing. `@fontfetch/core` itself is workspace-only and
+never published. The public surface of core lives behind
+[packages/core/src/index.ts](../packages/core/src/index.ts); anything not
+re-exported there is internal.
+
+Contributor switch: `npm install` → `pnpm install`. CI + release pipelines
+moved to pnpm@9. See [CHANGELOG.md](../CHANGELOG.md#100--2026-05-27) for the
+full migration notes.
 
 ## v0.6 — provenance grouping ✓ shipped
 

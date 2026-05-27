@@ -1,9 +1,12 @@
-#!/usr/bin/env node
-import { pull } from './pull.js';
-import { log } from './utils.js';
-import { isEmitTarget, EMIT_TARGETS, type EmitTarget } from './emitters/index.js';
+import {
+  pull,
+  log,
+  isEmitTarget,
+  EMIT_TARGETS,
+  type EmitTarget,
+} from '@fontfetch/core';
 
-const VERSION = '0.6.0';
+const VERSION = '1.0.0';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}
@@ -34,11 +37,11 @@ Flags:
   -v, --version     Print version
 
 Examples:
-  fontfetch https://stripe.com
-  fontfetch https://stripe.com ./fonts
+  fontfetch https://shinobidata.com
+  fontfetch https://shinobidata.com ./fonts
   fontfetch https://linear.app --headless
   fontfetch https://vercel.com --emit next,tailwind
-  npx fontfetch https://stripe.com
+  npx fontfetch https://shinobidata.com
 
 Output (per site):
   <outDir>/<hostname>/

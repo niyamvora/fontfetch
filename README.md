@@ -10,17 +10,17 @@
 </p>
 
 ```bash
-npx fontfetch https://stripe.com
+npx fontfetch https://shinobidata.com
 ```
 
 ```
-→ Fetching page: https://stripe.com
+→ Fetching page: https://shinobidata.com
   3 external stylesheet(s), 0 inline <style> block(s)
 → Found 12 @font-face declaration(s), 18 unique file(s)
-  ✓ SohneBreit-Buch.woff2  (32,180 bytes)
-  ✓ Sohne-Buch.woff2       (28,044 bytes)
+  ✓ Inter-Regular.woff2     (32,180 bytes)
+  ✓ Inter-SemiBold.woff2    (28,044 bytes)
   ...
-Done. 18/18 files saved to ./downloaded-fonts/stripe.com
+Done. 18/18 files saved to ./downloaded-fonts/shinobidata.com
 ```
 
 That's it. Real font files, a ready-to-paste `fonts.css` with local URLs, a JSON manifest, and a README — all in one folder you can drag straight into `public/fonts/`.
@@ -42,10 +42,10 @@ The existing options aren't great:
 
 ```
 downloaded-fonts/
-└── stripe.com/
+└── shinobidata.com/
     ├── files/                 ← raw woff2 / woff / ttf / otf
-    │   ├── Sohne-Buch.woff2
-    │   ├── Sohne-Halbfett.woff2
+    │   ├── Inter-Regular.woff2
+    │   ├── Inter-SemiBold.woff2
     │   └── ...
     ├── fonts.css              ← @font-face block with local URLs
     ├── fonts.json             ← manifest: family / weight / style / files
@@ -86,7 +86,7 @@ fontfetch <url> [outDir] [--headless]
 Examples:
 
 ```bash
-fontfetch https://stripe.com
+fontfetch https://shinobidata.com
 fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless
@@ -188,11 +188,9 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.2.2** — Referer-aware font downloads (unblocks foundry CDNs that 403 without a Referer)
 - [x] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite`
 - [x] **v0.4** — License heuristic + `LICENSE_REVIEW.md` + fail-fast on all-commercial sites (`--force` to bypass)
-- [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 - [x] **v0.6** — Provenance grouping: output split into `google/` / `adobe-typekit/` / `commercial/` / `open-cdn/` / `self-hosted/`
-- [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
-- [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style
-- [ ] **v0.6** — Provenance grouping: split output into `google/`, `adobe-typekit/`, `self-hosted/`, `cdn/`
+- [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.md#v10--monorepo-restructure--shipped): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
+- [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.
 
@@ -210,7 +208,7 @@ For production use, the [Google Fonts](https://fonts.google.com) catalog and the
 
 ## Contributing
 
-Issues and PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev loop. The codebase is small and approachable — `src/` is a handful of files, no monorepo, no build magic, just `tsup`.
+Issues and PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev loop. The codebase is small and approachable — a pnpm-workspaces monorepo with two packages (`@fontfetch/core` and the published `fontfetch` CLI), and `apps/` slots reserved for the v0.5 webapp and headless worker. `tsup` bundles core into the CLI so npm consumers see one self-contained file.
 
 Good first issues are tagged `good first issue` on GitHub.
 

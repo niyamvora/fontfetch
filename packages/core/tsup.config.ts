@@ -1,12 +1,13 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/cli.ts'],
+  entry: ['src/index.ts', 'src/headless.ts'],
   format: ['esm'],
   target: 'node18',
   clean: true,
-  dts: false,
+  dts: true,
   sourcemap: true,
   shims: false,
   minify: false,
+  external: ['playwright'],
 });
