@@ -28,6 +28,7 @@ pnpm-debug.log*
 
 # internal docs (not committed)
 docs/master-plan.md
+docs/launch-research-brief.md
 docs/internal/
 CHAT.md
 
