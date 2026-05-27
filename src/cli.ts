@@ -3,7 +3,7 @@ import { pull } from './pull.js';
 import { log } from './utils.js';
 import { isEmitTarget, EMIT_TARGETS, type EmitTarget } from './emitters/index.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}

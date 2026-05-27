@@ -127,17 +127,19 @@ Multiple targets allowed: `--emit next,tailwind`.
 - **`astro`** — almost identical to `vite`; deferred until there's actual demand
 - **Variable-font collapsing** — if multiple weights of the same family are actually subsets of one variable font, we currently emit them separately. A future emitter pass could detect this and use `next/font/local`'s variable-font support
 
-## v0.4 — license heuristic
+## v0.4 — license heuristic ✓ shipped
 
-Generates `LICENSE_REVIEW.md` per site. For each family, classify:
+Every pull writes `LICENSE_REVIEW.md` next to the rest of the per-site bundle. Each face is classified as:
 
-- ✅ **Open / self-hostable** — matched against Google Fonts catalog snapshot, or SIL OFL keywords in URL
-- ⚠️ **Commercial foundry** — known CDNs (`use.typekit.net`, `fonts.adobe.com`, `fast.fonts.net`, `cloud.typenetwork.com`, Klim's CloudFront, etc.)
-- ❓ **Unknown** — flag for manual review
+- ✅ **Open / self-hostable** — URL matches a known open CDN (Google Fonts, Fontsource, jsdelivr Google Fonts mirror) OR the family is on a curated SIL OFL / Google Fonts catalog snapshot
+- ⚠️ **Commercial foundry** — URL matches a commercial CDN (Adobe Typekit `use.typekit.net` / `p.typekit.net`, Monotype `fast.fonts.net`, Hoefler `cloud.typography.com`, Type Network `cloud.typenetwork.com`, Adobe Fonts, Font Awesome paid)
+- ❓ **Unknown** — no signature match
 
-No legal advice. Just signal so people don't accidentally ship Helvetica Now.
+URL signatures take precedence over family-name match, so 'Inter served from Typekit' classifies as commercial (someone is licensing it).
 
-**Fail-fast on commercial CDNs.** When every detected font URL points at a known commercial-foundry CDN, warn up-front ("This site serves fonts from Klim Type Foundry's CloudFront — files are signed/session-bound and will 403. Skipping download; see LICENSE_REVIEW.md for legitimate sources.") instead of attempting 17 doomed requests. Catches the failure mode hit when running fontfetch against e.g. [klim.co.nz/fonts/soehne](https://klim.co.nz/fonts/soehne/).
+**Fail-fast on all-commercial sites.** When every detected face classifies as commercial, fontfetch aborts before downloading, emits only `LICENSE_REVIEW.md`, and tells the user to pass `--force` if they have a legitimate reason. Mirrors `npm install --force` semantics.
+
+Not legal advice. Conservative on purpose: false-commercial is a safer failure mode than false-open. Adding a CDN signature is a one-line change in [src/license-data.ts](../src/license-data.ts).
 
 ## v0.5 — preview gallery
 

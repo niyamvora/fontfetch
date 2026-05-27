@@ -92,6 +92,23 @@ fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless
 ```
 
+### License review (v0.4)
+
+Every pull writes `LICENSE_REVIEW.md` alongside the rest of the per-site output. Each face is classified by a URL-signature heuristic (Adobe Typekit, Monotype, Hoefler, Type Network, etc.) plus a family-name fallback against a curated SIL OFL / Google Fonts catalog snapshot.
+
+```
+→ License review: 8 open / 2 commercial / 3 unknown
+```
+
+**Fail-fast.** When every detected font is served from a known commercial-foundry CDN, fontfetch aborts before downloading and emits only `LICENSE_REVIEW.md`. Pass `--force` to download anyway (e.g. for a local mockup of a site whose fonts you've licensed).
+
+```bash
+fontfetch https://commercial-foundry-site.com           # aborts, writes LICENSE_REVIEW.md
+fontfetch https://commercial-foundry-site.com --force   # downloads anyway
+```
+
+Not legal advice. The classifier is heuristic-only and conservative on purpose — verify before shipping.
+
 ### Framework emitters (v0.3)
 
 Pass `--emit <target,target,...>` to generate framework-ready config files alongside the default `fonts.css`.
@@ -170,6 +187,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
 - [x] **v0.2.2** — Referer-aware font downloads (unblocks foundry CDNs that 403 without a Referer)
 - [x] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite`
+- [x] **v0.4** — License heuristic + `LICENSE_REVIEW.md` + fail-fast on all-commercial sites (`--force` to bypass)
 - [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
 - [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style
 - [ ] **v0.6** — Provenance grouping: split output into `google/`, `adobe-typekit/`, `self-hosted/`, `cdn/`

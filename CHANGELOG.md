@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-05-27
+
+### Added
+- **License heuristic + `LICENSE_REVIEW.md`**. Every pull now classifies each face as `open`, `commercial`, or `unknown` based on a URL-signature heuristic (Adobe Typekit, Monotype `fast.fonts.net`, Hoefler `cloud.typography.com`, Type Network, Adobe Fonts) plus a family-name fallback against a curated SIL OFL / Google Fonts catalog snapshot. Result is written as `LICENSE_REVIEW.md` alongside the rest of the per-site bundle.
+- **Fail-fast on all-commercial sites.** When every detected face is served from a known commercial-foundry CDN, fontfetch aborts before downloading. It still emits `LICENSE_REVIEW.md` so the user can see what was detected, and prints a clear message recommending `--force` if they have a legitimate reason to proceed.
+- **`--force` flag.** Bypasses the fail-fast check. Mirrors `npm install --force` semantics — you're telling the tool "I know what I'm doing."
+- 12 new unit tests for the classifier and summarizer (`test/license.test.ts`).
+
+### Changed
+- CLI summary line at the end of a successful run now shows the license breakdown (`open / commercial / unknown` counts).
+
+### Notes
+- The classifier is heuristic-only and conservative on purpose — false-commercial is a safer failure mode than false-open (which could mislead a user into shipping a paid font).
+- Adding a CDN signature is a one-line change in [src/license-data.ts](src/license-data.ts). PRs welcome.
+
 ## [0.3.0] — 2026-05-27
 
 ### Added
