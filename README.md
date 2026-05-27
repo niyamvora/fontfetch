@@ -10,17 +10,17 @@
 </p>
 
 ```bash
-npx fontfetch https://stripe.com
+npx fontfetch https://shinobidata.com
 ```
 
 ```
-→ Fetching page: https://stripe.com
+→ Fetching page: https://shinobidata.com
   3 external stylesheet(s), 0 inline <style> block(s)
 → Found 12 @font-face declaration(s), 18 unique file(s)
-  ✓ SohneBreit-Buch.woff2  (32,180 bytes)
-  ✓ Sohne-Buch.woff2       (28,044 bytes)
+  ✓ Inter-Regular.woff2     (32,180 bytes)
+  ✓ Inter-SemiBold.woff2    (28,044 bytes)
   ...
-Done. 18/18 files saved to ./downloaded-fonts/stripe.com
+Done. 18/18 files saved to ./downloaded-fonts/shinobidata.com
 ```
 
 That's it. Real font files, a ready-to-paste `fonts.css` with local URLs, a JSON manifest, and a README — all in one folder you can drag straight into `public/fonts/`.
@@ -42,10 +42,10 @@ The existing options aren't great:
 
 ```
 downloaded-fonts/
-└── stripe.com/
+└── shinobidata.com/
     ├── files/                 ← raw woff2 / woff / ttf / otf
-    │   ├── Sohne-Buch.woff2
-    │   ├── Sohne-Halbfett.woff2
+    │   ├── Inter-Regular.woff2
+    │   ├── Inter-SemiBold.woff2
     │   └── ...
     ├── fonts.css              ← @font-face block with local URLs
     ├── fonts.json             ← manifest: family / weight / style / files
@@ -86,7 +86,7 @@ fontfetch <url> [outDir] [--headless]
 Examples:
 
 ```bash
-fontfetch https://stripe.com
+fontfetch https://shinobidata.com
 fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless

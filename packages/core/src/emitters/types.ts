@@ -1,7 +1,7 @@
 import type { FontFace } from '../types.js';
 
 export interface EmitContext {
-  /** Hostname-derived slug, e.g. 'stripe-com' (used for variable names) */
+  /** Hostname-derived slug, e.g. 'shinobidata-com' (used for variable names) */
   siteSlug: string;
   /** Path (relative to the output dir) where font files live. Default: 'files' */
   filesDir: string;

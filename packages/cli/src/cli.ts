@@ -37,11 +37,11 @@ Flags:
   -v, --version     Print version
 
 Examples:
-  fontfetch https://stripe.com
-  fontfetch https://stripe.com ./fonts
+  fontfetch https://shinobidata.com
+  fontfetch https://shinobidata.com ./fonts
   fontfetch https://linear.app --headless
   fontfetch https://vercel.com --emit next,tailwind
-  npx fontfetch https://stripe.com
+  npx fontfetch https://shinobidata.com
 
 Output (per site):
   <outDir>/<hostname>/
