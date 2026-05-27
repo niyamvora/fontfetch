@@ -17,15 +17,18 @@ export async function pull({
   headless = false,
   emit = [],
   force = false,
+  onProgress,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
   const filesDir = path.join(outDir, 'files');
   await fs.mkdir(filesDir, { recursive: true });
 
+  onProgress?.({ type: 'phase', phase: 'fetch_html' });
   log.info(`→ Fetching page: ${url}`);
   const html = await fetchText(url);
 
+  onProgress?.({ type: 'phase', phase: 'parse_css' });
   const cssLinks = extractStylesheetLinks(html, url);
   const inlineCss = extractInlineStyles(html);
   log.info(`  ${cssLinks.length} external stylesheet(s), ${inlineCss.length} inline <style> block(s)`);
@@ -35,8 +38,11 @@ export async function pull({
     try {
       log.info(`→ Fetching CSS: ${link}`);
       cssSources.push({ text: await fetchText(link, { Referer: url }), base: link });
+      onProgress?.({ type: 'css_fetched', url: link });
     } catch (e) {
-      log.warn(`  ! Failed: ${(e as Error).message}`);
+      const reason = (e as Error).message;
+      log.warn(`  ! Failed: ${reason}`);
+      onProgress?.({ type: 'css_failed', url: link, reason });
     }
   }
 
@@ -118,19 +124,30 @@ export async function pull({
   }
   if (orphans.length > 0) {
     log.info(`→ ${orphans.length} orphan file(s) (cross-origin, no @font-face metadata available)`);
+    for (const o of orphans) onProgress?.({ type: 'orphan', url: o.url, file: o.file });
   }
 
+  onProgress?.({ type: 'phase', phase: 'extract_faces' });
+  onProgress?.({ type: 'faces_found', count: faces.length, files: urlToLocal.size });
   log.info(`→ Found ${faces.length} @font-face declaration(s), ${urlToLocal.size} unique file(s)`);
   if (urlToLocal.size === 0) {
     log.info('  (Nothing to download. Site may load fonts via JS, or block automated requests. Try --headless.)');
+    onProgress?.({ type: 'done', downloaded: 0, total: 0, outDir });
     return { outDir, faces, orphans: [], downloaded: 0, total: 0 };
   }
 
+  onProgress?.({ type: 'phase', phase: 'classify' });
   const classified = classifyFaces(faces);
   const licenseSummary = summarize(classified);
   log.info(
     `→ License review: ${licenseSummary.open} open / ${licenseSummary.commercial} commercial / ${licenseSummary.unknown} unknown`,
   );
+  onProgress?.({
+    type: 'classified',
+    open: licenseSummary.open,
+    commercial: licenseSummary.commercial,
+    unknown: licenseSummary.unknown,
+  });
 
   // Fail-fast: every face came from a commercial foundry CDN. Most users will
   // not have a license for these; download them anyway only if --force is set.
@@ -145,12 +162,18 @@ export async function pull({
     log.warn(`  Wrote ${path.join(outDir, 'LICENSE_REVIEW.md')} with the breakdown.`);
     log.warn('  To download anyway (e.g. for a local mockup you have rights to), re-run with --force.');
     log.warn('');
+    onProgress?.({ type: 'aborted_all_commercial', count: licenseSummary.commercial });
+    onProgress?.({ type: 'done', downloaded: 0, total: urlToLocal.size, outDir });
     return { outDir, faces, orphans: [], downloaded: 0, total: urlToLocal.size };
   }
 
+  onProgress?.({ type: 'phase', phase: 'download' });
+  const total = urlToLocal.size;
   let downloaded = 0;
+  let index = 0;
   const createdBuckets = new Set<string>();
   for (const [fontUrl, name] of urlToLocal) {
+    index++;
     const dest = path.join(filesDir, name);
     const bucketDir = path.dirname(dest);
     if (!createdBuckets.has(bucketDir)) {
@@ -161,9 +184,20 @@ export async function pull({
       const buf = await fetchBuffer(fontUrl, { Referer: url });
       await fs.writeFile(dest, buf);
       log.info(`  ✓ ${name}  (${buf.length.toLocaleString()} bytes)`);
+      const bucket = name.includes('/') ? name.split('/')[0] : 'self-hosted';
+      onProgress?.({
+        type: 'file_downloaded',
+        name,
+        bucket,
+        bytes: buf.length,
+        index,
+        total,
+      });
       downloaded++;
     } catch (e) {
-      log.warn(`  ✗ ${name} — ${(e as Error).message}`);
+      const reason = (e as Error).message;
+      log.warn(`  ✗ ${name} — ${reason}`);
+      onProgress?.({ type: 'file_failed', name, reason });
     }
   }
 
@@ -184,5 +218,7 @@ export async function pull({
     log.info(`  + emitted ${output.filename} (--emit ${target})`);
   }
 
+  onProgress?.({ type: 'phase', phase: 'done' });
+  onProgress?.({ type: 'done', downloaded, total: urlToLocal.size, outDir });
   return { outDir, faces, orphans, downloaded, total: urlToLocal.size };
 }

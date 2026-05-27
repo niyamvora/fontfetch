@@ -19,6 +19,7 @@ export { pull } from './pull.js';
 export type {
   PullOptions,
   PullResult,
+  PullProgressEvent,
   FontFace,
   FontSource,
   OrphanFile,
