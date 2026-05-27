@@ -111,17 +111,21 @@ In headless mode the browser network listener captures font URLs that bypass our
 
 Out of scope: bypassing signed-URL or session-bound protection used by commercial foundries — that's a different problem, addressed proactively in v0.4.
 
-## v0.3 — framework emitters
+## v0.3 — framework emitters ✓ shipped
 
-`--emit <target>` where target is one of:
+`--emit <target,target,...>`. Targets shipped in v0.3:
 
-- `next` — generates a `lib/fonts.ts` file with `next/font/local` calls + CSS variables wired to `localFont({ src: [...] })`
-- `tailwind` — generates a `fontFamily` block ready to paste into `tailwind.config.ts`
-- `vite` — generates a CSS module import suggestion + global font registration
-- `astro` — same idea
-- `css` — current behavior (default)
+- `next` — `next.fonts.ts`: one `localFont` call per family, all weights/styles, plus a `--font-<family>` CSS variable
+- `tailwind` — `tailwind.fonts.ts`: `sans` / `serif` / `mono` bucket assignment (heuristic on family name) + per-family aliases. Designed to pair with `--emit next` for the CSS variables
+- `vite` — `vite.fonts.md`: integration guide (Vite needs no plugin; the default `fonts.css` is already a drop-in stylesheet)
+- `css` — explicit no-op for the default
 
-Multiple emitters allowed: `--emit next,tailwind`.
+Multiple targets allowed: `--emit next,tailwind`.
+
+### v0.3.x — deferred targets
+
+- **`astro`** — almost identical to `vite`; deferred until there's actual demand
+- **Variable-font collapsing** — if multiple weights of the same family are actually subsets of one variable font, we currently emit them separately. A future emitter pass could detect this and use `next/font/local`'s variable-font support
 
 ## v0.4 — license heuristic
 

@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-05-27
+
+### Added
+- **`--emit <targets>` flag**. Comma-separated framework targets emitted alongside the default `fonts.css`:
+  - `next` → `next.fonts.ts` using `next/font/local`, one `localFont` call per family with all weights/styles, plus a CSS variable per family ready to spread into `<html>`
+  - `tailwind` → `tailwind.fonts.ts` with `fontFamily` mapped into `sans` / `serif` / `mono` (heuristic) plus per-family aliases. Pairs with `--emit next` for CSS variables
+  - `vite` → `vite.fonts.md` with a copy-paste integration guide
+  - `css` → default (no-op flag; just makes the default explicit)
+- Multiple targets allowed: `--emit next,tailwind` emits both
+- `--emit=next,tailwind` (equals form) also accepted
+- New `src/emitters/` module with one file per target, a shared `util.ts`, and a typed `Emitter` interface
+- Vitest test harness with unit tests for every emitter and the utility helpers
+- CI now runs `npm run test` between typecheck and build
+
+### Changed
+- `tsconfig.json` now includes `test/**/*` so the test files are typechecked alongside source
+- Bumped to v0.3.0
+
 ## [0.2.2] — 2026-05-27
 
 ### Changed
