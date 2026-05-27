@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-27
+
+### Changed
+- **Monorepo restructure (pnpm workspaces).** `src/` is gone from the repo root; the codebase now lives in two packages and is ready to host the v0.5 webapp + headless worker without further restructuring.
+  - `packages/core/` — `@fontfetch/core`, the shared pipeline (parse, license, provenance, emitters, `pull()`, optional `headless`). Workspace-only; not published.
+  - `packages/cli/` — `fontfetch`, the npm package. Single bundled file via `tsup` (`noExternal: ['@fontfetch/core']`), so installed users see zero workspace plumbing.
+  - `apps/web/` and `apps/worker/` — empty placeholders for the v0.5 webapp and v0.5.x headless service. Both will import from `@fontfetch/core`.
+- Tooling switched from npm to **pnpm@9** (`packageManager` pinned in the root `package.json`). CI + release workflows updated accordingly; `package-lock.json` is replaced by `pnpm-lock.yaml`.
+- Root `tsconfig.json` is now a TypeScript Project References pointer; per-package `tsconfig.json` extends a shared `tsconfig.base.json`.
+- Test fixtures, vitest config, and tsup config moved into the owning package.
+- The published `bin` path moved from `./dist/cli.js` to `./packages/cli/dist/cli.js` inside the repo. The npm package's own `bin` is unchanged (`./dist/cli.js` relative to the published tarball).
+
+### Migration notes
+- **For users of the CLI**: no change. `npx fontfetch <url>` works exactly as before; the published package shape is identical.
+- **For contributors**: `npm install` → `pnpm install`. `npm run X` → `pnpm run X`. Per-package: `pnpm --filter @fontfetch/core test`.
+- **For future webapp/worker work**: import from `@fontfetch/core`; deep imports outside the re-exported public API (`packages/core/src/index.ts`) are unsupported and may break.
+
+### Why this version is 1.0
+- The package layout is now stable. Adding the webapp and headless worker no longer requires a restructure — they slot into `apps/`.
+- The public API of `@fontfetch/core` is locked behind `index.ts`. Future minor versions extend it; breaking changes go in a 2.0.
+
 ## [0.6.0] — 2026-05-27
 
 ### Added

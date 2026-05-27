@@ -5,6 +5,14 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# pnpm
+.pnpm-store/
+
+# copied at publish time by packages/cli/package.json `prepack`
+packages/cli/README.md
+packages/cli/LICENSE
+packages/cli/CHANGELOG.md
+
 # tool output
 downloaded-fonts/
 

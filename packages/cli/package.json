@@ -1,0 +1,67 @@
+{
+  "name": "fontfetch",
+  "version": "1.0.0",
+  "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
+  "type": "module",
+  "bin": {
+    "fontfetch": "./dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node ./dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .tsbuildinfo README.md LICENSE CHANGELOG.md",
+    "prepack": "cp ../../README.md ../../LICENSE ../../CHANGELOG.md ./",
+    "postpack": "rm -f README.md LICENSE CHANGELOG.md",
+    "prepublishOnly": "pnpm --filter @fontfetch/core run build && pnpm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "font",
+    "fonts",
+    "webfont",
+    "web-font",
+    "font-face",
+    "scrape",
+    "scraper",
+    "downloader",
+    "google-fonts",
+    "self-host",
+    "self-hosted-fonts",
+    "cli",
+    "nextjs",
+    "tailwind"
+  ],
+  "author": "Niyam Vora <niyamvora@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niyamvora/fontfetch.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/niyamvora/fontfetch/issues"
+  },
+  "homepage": "https://github.com/niyamvora/fontfetch#readme",
+  "devDependencies": {
+    "@fontfetch/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "playwright": "^1.49.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  }
+}

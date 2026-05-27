@@ -210,7 +210,7 @@ For production use, the [Google Fonts](https://fonts.google.com) catalog and the
 
 ## Contributing
 
-Issues and PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev loop. The codebase is small and approachable — `src/` is a handful of files, no monorepo, no build magic, just `tsup`.
+Issues and PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev loop. The codebase is small and approachable — a pnpm-workspaces monorepo with two packages (`@fontfetch/core` and the published `fontfetch` CLI), and `apps/` slots reserved for the v0.5 webapp and headless worker. `tsup` bundles core into the CLI so npm consumers see one self-contained file.
 
 Good first issues are tagged `good first issue` on GitHub.
 

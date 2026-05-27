@@ -1,8 +1,43 @@
 # Architecture
 
-fontfetch is intentionally small — under 500 lines of TypeScript across 6 files. This doc explains the shape so contributors can find their way in.
+fontfetch is a pnpm-workspaces monorepo. The published `fontfetch` CLI is a
+thin wrapper around the shared `@fontfetch/core` library — the same library
+the v0.5 webapp imports from a Next.js API route, and the same library the
+v0.5.x headless worker will use.
 
-## Pipeline
+## Repo layout
+
+```
+fontfetch/
+├── packages/
+│   ├── core/          @fontfetch/core — pure pipeline, no I/O assumptions
+│   │   ├── src/
+│   │   │   ├── index.ts          Public API barrel
+│   │   │   ├── pull.ts           Orchestrator
+│   │   │   ├── parse.ts          HTML + @font-face regex parsing
+│   │   │   ├── emit.ts           fonts.css / fonts.json / per-site README
+│   │   │   ├── license.ts        Open / commercial / unknown classifier
+│   │   │   ├── license-data.ts   Host + family signature tables
+│   │   │   ├── provenance.ts     Bucket classifier (google / commercial / …)
+│   │   │   ├── headless.ts       Optional Playwright entry (peer dep)
+│   │   │   ├── utils.ts          fetch, slugs, logging
+│   │   │   ├── types.ts          FontFace / PullOptions / PullResult / …
+│   │   │   └── emitters/         Per-framework emitters (next, tailwind, vite)
+│   │   └── test/                 Vitest suite (mirrors src/)
+│   └── cli/           `fontfetch` — the published npm package
+│       └── src/cli.ts            Arg parsing → calls core.pull()
+├── apps/
+│   ├── web/           Reserved for the fontfetch.dev Next.js webapp (v0.5)
+│   └── worker/        Reserved for the Playwright headless worker (v0.5.x)
+├── pairings/          Community pairings registry (v0.1.1 ship)
+├── docs/              Roadmap, architecture, webapp plan
+├── pnpm-workspace.yaml
+├── tsconfig.base.json Shared compiler options
+├── tsconfig.json      Root — project references core
+└── package.json       Monorepo root (private, no source)
+```
+
+## Pipeline (lives entirely in `@fontfetch/core`)
 
 ```
 URL
@@ -20,40 +55,74 @@ URL
 [parse: @font-face]      ─── one descriptor per face: family, weight, style, src, unicode-range
  │
  ▼
-[claim filenames]        ─── collision-safe local names, deduped by URL
+[claim filenames]        ─── bucket-prefixed, collision-safe local names
  │
  ▼
-[fetchBuffer × N]        ─── downloads font files
+[classify licenses]      ─── open / commercial / unknown; fail-fast if all-commercial
  │
  ▼
-[emit]                   ─── writes fonts.css, fonts.json, README.md
+[fetchBuffer × N]        ─── downloads font files into files/<bucket>/
+ │
+ ▼
+[emit]                   ─── fonts.css, fonts.json, README.md, LICENSE_REVIEW.md
+                              + any --emit targets (next.fonts.ts, tailwind.fonts.ts, …)
 ```
 
-## Files
+## Package boundaries
 
-| File | Lines | Role |
-|---|---|---|
-| `src/cli.ts` | ~50 | Arg parsing, help, dispatch |
-| `src/pull.ts` | ~85 | Orchestrator — calls parse/fetch/emit |
-| `src/parse.ts` | ~65 | HTML + @font-face regex parsing |
-| `src/emit.ts` | ~75 | Builds fonts.css, fonts.json, per-site README |
-| `src/utils.ts` | ~50 | fetch, slugs, logging, constants |
-| `src/types.ts` | ~30 | FontFace, FontSource, PullOptions, PullResult |
+| Package | Publish? | Depends on | Imports `playwright`? |
+|---|---|---|---|
+| `@fontfetch/core` | No (workspace-only) | — | Optional peer dep, dynamic `import()` |
+| `fontfetch` (CLI) | Yes (npm) | `@fontfetch/core` (bundled by tsup) | Inherits peer dep |
+| `apps/web` (planned) | No (deployed to Vercel) | `@fontfetch/core` | No — delegates headless to worker |
+| `apps/worker` (planned) | No (deployed to Render/Fly/Cloud Run) | `@fontfetch/core/headless` | Direct |
+
+The CLI publishes as a single bundled file: `tsup` inlines `@fontfetch/core`
+via `noExternal`, so npm consumers don't need any workspace machinery.
+Playwright stays external and optional.
 
 ## Design choices
 
-**Regex parser, not a real CSS AST.** @font-face is a constrained subset of CSS, and the cost of pulling in postcss for one regex was not worth it. If we ever hit a case the regex can't handle, we revisit.
+**Regex parser, not a real CSS AST.** `@font-face` is a constrained subset of
+CSS, and the cost of pulling in postcss for one regex was not worth it.
 
-**Zero runtime deps.** Everything users install is `tsup` output. No `axios`, no `cheerio`. Node's built-in `fetch` (Node 18+) is enough.
+**Zero runtime deps for the CLI.** The published `fontfetch` package is a
+single bundled file. Playwright is an optional peer dep.
 
-**Per-site output folder.** Multiple runs against different sites don't collide. Filenames within `files/` are derived from the URL pathname, with host-prefix fallback if a basename collides across CDNs.
+**`headless.ts` lives in core, not the worker.** Both the CLI and the future
+worker need it; centralising it keeps the Playwright behaviour identical
+between local CLI runs and production webapp pulls. The webapp itself doesn't
+import it (Vercel can't run Chromium).
 
-**One file per face, even for unicode-range subsets.** Sites like Google Fonts split a single family/weight across many files for different language ranges. We keep them all — the browser handles which one to load.
+**Per-site, per-bucket output folder.** Multiple runs against different sites
+don't collide; within a site, files are organised by source (`google/`,
+`adobe-typekit/`, `commercial/`, `open-cdn/`, `self-hosted/`) so the
+free-vs-licensed split is visible in the filesystem.
 
 ## Extension points
 
-**Adding a new source of CSS** (e.g., shadow DOM, `<style>` inside `<iframe>`): add a function in `parse.ts` that returns a list of `{text, base}` and wire it into `cssSources` in `pull.ts`.
+**Adding a new source of CSS** (e.g., shadow DOM, `<style>` inside
+`<iframe>`): add a function in [packages/core/src/parse.ts](../packages/core/src/parse.ts)
+that returns a list of `{text, base}` and wire it into `cssSources` in
+[packages/core/src/pull.ts](../packages/core/src/pull.ts).
 
-**Adding a framework emitter** (roadmap v0.3): create `src/emitters/<name>.ts` exporting a function that takes `FontFace[]` and returns a string. Wire it into a `--emit` flag in `cli.ts`.
+**Adding a framework emitter**: create
+`packages/core/src/emitters/<name>.ts` exporting a function matching the
+`Emitter` type. Register it in
+[packages/core/src/emitters/index.ts](../packages/core/src/emitters/index.ts)
+and add the target to `EMIT_TARGETS` in
+[packages/core/src/emitters/types.ts](../packages/core/src/emitters/types.ts).
 
-**Adding headless mode** (roadmap v0.2): branch in `pull.ts` — if `--headless`, use Playwright to load the page, await `document.fonts.ready`, then dump from `document.fonts.values()` instead of the regex parser.
+**Adding a license signature**: append to `OPEN_HOSTS`, `COMMERCIAL_HOSTS`,
+or `KNOWN_OPEN_FAMILIES` in
+[packages/core/src/license-data.ts](../packages/core/src/license-data.ts).
+One-line change.
+
+**Adding a provenance bucket**: extend the `Bucket` union and `RULES` table in
+[packages/core/src/provenance.ts](../packages/core/src/provenance.ts).
+
+**Consuming core from outside the CLI**: import from `@fontfetch/core`.
+Public API is everything re-exported by
+[packages/core/src/index.ts](../packages/core/src/index.ts) — `pull()`,
+the classifier, the emitters, the types. Anything not re-exported is internal
+and may change without a major bump.
