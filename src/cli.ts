@@ -2,7 +2,7 @@
 import { pull } from './pull.js';
 import { log } from './utils.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}

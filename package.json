@@ -1,6 +1,6 @@
 {
   "name": "fontfetch",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
   "type": "module",
   "bin": {

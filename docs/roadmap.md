@@ -96,13 +96,20 @@ Catches:
 
 Playwright stays a `peerDependencies` install with `optional: true` — the static path keeps zero runtime deps.
 
-### v0.2.1 — cross-origin networking (deferred)
+### v0.2.1 — cross-origin networking ✓ shipped
 
-In headless mode we capture font URLs from the browser's network log as a backstop for cross-origin stylesheets whose `cssRules` throw. v0.2 logs these URLs but doesn't auto-download them (no family/weight metadata to write fonts.css from). v0.2.1 will:
+In headless mode the browser network listener captures font URLs that bypass our static parser — usually because the stylesheet is cross-origin and `cssRules` throws (Adobe Typekit, some CDN-hosted CSS). v0.2.1:
 
-- Auto-download orphan URLs into `files/orphans/`
-- Emit a separate `orphan_files` array in `fonts.json`
-- Note orphans in the per-site README with instructions to manually wire `@font-face`
+- Auto-downloads orphan URLs alongside the rest into `files/`
+- Lists them under a new `orphan_files` array in `fonts.json`
+- Notes them in the per-site `README.md` with manual `@font-face` instructions
+- Manifest shape changed from `[FontFace, ...]` to `{ faces: [...], orphan_files: [...] }` (pre-1.0, no existing consumers)
+
+### v0.2.2 — Referer-aware font downloads
+
+`fetchBuffer` in [src/utils.ts](../src/utils.ts) currently sends only `User-Agent`. Many CDNs (and some self-hosted setups) require a `Referer` header matching the page that loaded the CSS — without it, requests 403 even when nothing else is wrong. v0.2.2 threads the originating page URL through `pull` → `fetchBuffer` so every font request carries the correct `Referer` (mirroring what we already do for stylesheet fetches in [src/pull.ts:28](../src/pull.ts#L28)).
+
+Out of scope: bypassing signed-URL or session-bound protection used by commercial foundries — that's a different problem, addressed proactively in v0.4.
 
 ## v0.3 — framework emitters
 
@@ -121,10 +128,12 @@ Multiple emitters allowed: `--emit next,tailwind`.
 Generates `LICENSE_REVIEW.md` per site. For each family, classify:
 
 - ✅ **Open / self-hostable** — matched against Google Fonts catalog snapshot, or SIL OFL keywords in URL
-- ⚠️ **Commercial foundry** — known CDNs (`use.typekit.net`, `fonts.adobe.com`, `fast.fonts.net`, `cloud.typenetwork.com`)
+- ⚠️ **Commercial foundry** — known CDNs (`use.typekit.net`, `fonts.adobe.com`, `fast.fonts.net`, `cloud.typenetwork.com`, Klim's CloudFront, etc.)
 - ❓ **Unknown** — flag for manual review
 
 No legal advice. Just signal so people don't accidentally ship Helvetica Now.
+
+**Fail-fast on commercial CDNs.** When every detected font URL points at a known commercial-foundry CDN, warn up-front ("This site serves fonts from Klim Type Foundry's CloudFront — files are signed/session-bound and will 403. Skipping download; see LICENSE_REVIEW.md for legitimate sources.") instead of attempting 17 doomed requests. Catches the failure mode hit when running fontfetch against e.g. [klim.co.nz/fonts/soehne](https://klim.co.nz/fonts/soehne/).
 
 ## v0.5 — preview gallery
 
