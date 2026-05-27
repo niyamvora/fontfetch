@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-27
+
+### Added
+- **Provenance grouping.** Every downloaded font now lives under `files/<bucket>/<name>`, where bucket is one of `google` / `adobe-typekit` / `commercial` / `open-cdn` / `self-hosted`. Same first-match-wins precedence as the license heuristic; same-origin URLs (with `www.` and subdomain handling) fall to `self-hosted`.
+- New module `src/provenance.ts` with `bucketForUrl(url, pageHost)` and `sameOrigin(a, b)` helpers.
+- 18 unit tests for bucketing and same-origin detection.
+
+### Changed
+- **Breaking layout change** (no published consumers): font files moved from `files/*.woff2` to `files/<bucket>/*.woff2`. `fonts.css`, `fonts.json`, `LICENSE_REVIEW.md`, and every framework emitter now reference the bucketed paths automatically.
+- Per-file progress log prefixes the bucket: `✓ google/Inter-Regular.woff2` instead of `✓ Inter-Regular.woff2`.
+
+### Notes
+- v0.5 was originally scoped as a static `preview.html`. We've decided to skip that and roll it into a much larger v0.5 — a hosted Next.js webapp at `fontfetch.dev` with live progress, foundry-style previews, side-by-side compare, and font-pairing. See [docs/roadmap.md](docs/roadmap.md#v05--hosted-webapp) for the public plan.
+
 ## [0.4.0] — 2026-05-27
 
 ### Added

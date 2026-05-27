@@ -141,23 +141,75 @@ URL signatures take precedence over family-name match, so 'Inter served from Typ
 
 Not legal advice. Conservative on purpose: false-commercial is a safer failure mode than false-open. Adding a CDN signature is a one-line change in [src/license-data.ts](../src/license-data.ts).
 
-## v0.5 — preview gallery
+## v0.5 — hosted webapp
 
-Auto-generate `preview.html` in the output folder. Renders each family × weight × style with a pangram, size scale (12/16/24/48/96 px), and a paragraph block. Opens in a browser — instant visual sanity check.
+The original v0.5 was a static `preview.html` per site. We're trading that up for something much bigger: a **hosted Next.js webapp at `fontfetch.dev`** that puts every CLI capability behind a designed-for-humans UI.
 
-## v0.6 — provenance grouping
+### What it does
 
-Output split:
+1. **Paste a URL** — single input, validated client-side
+2. **Live progress** — animated stepper with each pipeline phase:
+   - Fetching HTML
+   - Parsing N stylesheets
+   - Found M @font-face declarations
+   - Downloading K/M files
+   - Classifying licenses
+   - Ready
+3. **Foundry-style preview** — click any font, see it presented like a Klim or Commercial Type product page:
+   - Big editable sample text + pangram preset
+   - Size slider, weight selector, italic toggle
+   - Letter-spacing + line-height sliders
+   - Sample paragraph + glyph grid + numerals/symbols block
+4. **Compare** — pick two fonts (from the same site or different ones), see them side by side with synced controls
+5. **Pairing** — pick one font as headline + another as body, see them composed in a realistic layout. Save the pairing → submits to the [community registry](../pairings)
+6. **Bundle download** — ZIP of `files/`, `fonts.css`, `fonts.json`, `LICENSE_REVIEW.md`
+7. **License badge** — `open / commercial / unknown` counts prominent everywhere a font appears
+
+### Stack (planned)
+
+- Next.js 15 App Router + React 19 + TypeScript
+- **shadcn/ui + Tailwind CSS** for the component layer (well-documented, easy for contributors)
+- Framer Motion / motion.dev for the stepper + preview transitions
+- The current CLI library imported server-side from API routes
+- Streaming progress via Server-Sent Events
+- Headless mode delegated to a small worker (Render / Fly.io / Cloud Run) — Vercel serverless can't host Chromium
+- Bundle storage on Cloudflare R2 (24h TTL)
+
+### Why this matters more than `preview.html`
+
+- A hosted entry point dramatically lowers the activation cost for non-CLI users
+- The compare + pairing tools have no good open-source equivalent (typewolf is paywalled / human-curated)
+- Drives traffic back to the community pairings registry
+- Doubles as the project's marketing page
+
+### Scope to ship as v0.5
+
+1. URL paste → static-mode pull → progress UI → results page
+2. Single-font preview view
+3. Bundle download
+
+### Deferred to v0.5.x
+
+- Headless-mode toggle (needs the worker; gate behind a "show advanced" flag)
+- Compare mode
+- Pairing tool with registry submission
+- Account-less history (localStorage)
+
+## v0.6 — provenance grouping ✓ shipped
+
+Downloaded files are organised into subfolders by source:
 
 ```
 downloaded-fonts/example.com/
-├── google/
-├── adobe-typekit/
-├── cdn/
-└── self-hosted/
+└── files/
+    ├── google/         Google Fonts CDN
+    ├── adobe-typekit/  use.typekit.net / fonts.adobe.com
+    ├── commercial/     Monotype / Hoefler / Type Network
+    ├── open-cdn/       Fontsource, rsms.me, Google Fonts mirror
+    └── self-hosted/    Same origin as the page (with www. + subdomain handling)
 ```
 
-Makes the "free vs licensed" split visible at a glance.
+Same first-match-wins precedence as the license heuristic. Makes the "free vs licensed" split visible in the filesystem — useful when sharing a bundle with a teammate ("the google/ folder is safe to ship; the rest needs review"). Breaking change to output paths; pre-1.0, no published consumers.
 
 ## Stretch — programmatic API
 
