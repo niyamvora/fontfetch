@@ -4,7 +4,7 @@
   "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs.",
   "type": "module",
   "bin": {
-    "fontfetch": "./dist/cli.js"
+    "fontfetch": "dist/cli.js"
   },
   "main": "./dist/cli.js",
   "files": [
@@ -46,7 +46,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/niyamvora/fontfetch.git"
+    "url": "git+https://github.com/niyamvora/fontfetch.git"
   },
   "bugs": {
     "url": "https://github.com/niyamvora/fontfetch/issues"
