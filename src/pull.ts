@@ -7,8 +7,14 @@ import type { CssSource, OrphanFile, PullOptions, PullResult } from './types.js'
 import { FONT_EXT_RE } from './utils.js';
 import { abs } from './utils.js';
 import { fetchHeadless } from './headless.js';
+import { EMITTERS } from './emitters/index.js';
 
-export async function pull({ url, baseDir, headless = false }: PullOptions): Promise<PullResult> {
+export async function pull({
+  url,
+  baseDir,
+  headless = false,
+  emit = [],
+}: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
   const filesDir = path.join(outDir, 'files');
@@ -127,6 +133,15 @@ export async function pull({ url, baseDir, headless = false }: PullOptions): Pro
   await fs.writeFile(path.join(outDir, 'fonts.css'), buildFontsCss(faces));
   await fs.writeFile(path.join(outDir, 'fonts.json'), buildFontsJson(faces, orphans));
   await fs.writeFile(path.join(outDir, 'README.md'), buildReadme(host, faces, downloaded, orphans));
+
+  for (const target of emit) {
+    const emitter = EMITTERS[target];
+    if (!emitter) continue;
+    const output = emitter(faces, { siteSlug: host, filesDir: 'files' });
+    if (!output) continue;
+    await fs.writeFile(path.join(outDir, output.filename), output.content);
+    log.info(`  + emitted ${output.filename} (--emit ${target})`);
+  }
 
   return { outDir, faces, orphans, downloaded, total: urlToLocal.size };
 }

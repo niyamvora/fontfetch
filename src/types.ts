@@ -17,6 +17,8 @@ export interface PullOptions {
   url: string;
   baseDir: string;
   headless?: boolean;
+  /** Framework targets to emit alongside the default css output. */
+  emit?: ('next' | 'tailwind' | 'vite')[];
 }
 
 export interface OrphanFile {

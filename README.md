@@ -92,6 +92,35 @@ fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless
 ```
 
+### Framework emitters (v0.3)
+
+Pass `--emit <target,target,...>` to generate framework-ready config files alongside the default `fonts.css`.
+
+```bash
+fontfetch https://vercel.com --emit next,tailwind
+```
+
+Targets:
+
+| Target | Emits | Use it for |
+|---|---|---|
+| `next` | `next.fonts.ts` | Drop-in `next/font/local` config — one `localFont` call per family with all weights, plus a CSS variable |
+| `tailwind` | `tailwind.fonts.ts` | `fontFamily` snippet for `tailwind.config.ts` — `sans` / `serif` / `mono` heuristic + per-family aliases. Pairs with `next` for CSS variables |
+| `vite` | `vite.fonts.md` | Copy-paste integration guide. Vite needs no plugin — the default `fonts.css` is already a drop-in stylesheet |
+| `css` | (default) | Explicit no-op |
+
+Output ends up alongside the rest of the per-site bundle:
+
+```
+downloaded-fonts/vercel-com/
+├── files/
+├── fonts.css
+├── fonts.json
+├── README.md
+├── next.fonts.ts          ← --emit next
+└── tailwind.fonts.ts      ← --emit tailwind
+```
+
 ### Headless mode (v0.2)
 
 By default fontfetch is **static** — it fetches the HTML, reads every linked stylesheet and inline `<style>`, and parses `@font-face` rules. That covers ~90% of real-world sites and is fast.
@@ -140,7 +169,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
 - [x] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
 - [x] **v0.2.2** — Referer-aware font downloads (unblocks foundry CDNs that 403 without a Referer)
-- [ ] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite` / `astro`
+- [x] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite`
 - [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
 - [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style
 - [ ] **v0.6** — Provenance grouping: split output into `google/`, `adobe-typekit/`, `self-hosted/`, `cdn/`
