@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- **`pull()` accepts an optional `onProgress` callback** in `PullOptions`. Receives structured `PullProgressEvent` updates as the pipeline runs — `phase` transitions (`fetch_html` / `parse_css` / `extract_faces` / `download` / `classify` / `done`), per-stylesheet `css_fetched` / `css_failed`, `faces_found` with face + file counts, per-file `file_downloaded` / `file_failed`, `orphan`, `classified` totals, `aborted_all_commercial`, and a terminal `done`. Designed for non-CLI consumers (webapps, build tools) that want to stream progress to a UI instead of scraping log lines.
+- `PullProgressEvent` exported as a public type from `@fontfetch/core`.
+
+### Changed
+- Nothing. The CLI ignores `onProgress` and keeps logging to stdout exactly as before. The change is purely additive — existing consumers see no behaviour difference.
+
+### Notes
+- 54/54 vitest cases unchanged.
+- This release is staged on `main` but not yet bumped on npm. When published it'll go out as **1.1.0** — minor bump, additive surface.
+
 ## [1.0.0] — 2026-05-27
 
 ### Changed

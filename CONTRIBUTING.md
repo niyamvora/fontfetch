@@ -34,9 +34,14 @@ packages/
                        file, bundles core via tsup.
 
 apps/
-├── web/               Reserved for fontfetch.dev (v0.5)
-└── worker/            Reserved for the Playwright headless service (v0.5.x)
+├── web/               Placeholder. The actual fontfetch.dev webapp source
+│                      lives in the private fontfetch_fullstack repo
+│                      (alongside the future auth + saved-sessions backend).
+└── worker/            Reserved for the Playwright headless service (v0.5.x).
 ```
+
+This repo is the open-source surface — CLI, `@fontfetch/core`, docs, and the
+pairings registry. Everything contributors interact with lives here.
 
 See [docs/architecture.md](./docs/architecture.md) for the file-level breakdown
 and pipeline diagram.

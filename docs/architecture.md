@@ -2,8 +2,15 @@
 
 fontfetch is a pnpm-workspaces monorepo. The published `fontfetch` CLI is a
 thin wrapper around the shared `@fontfetch/core` library — the same library
-the v0.5 webapp imports from a Next.js API route, and the same library the
-v0.5.x headless worker will use.
+the v0.5 webapp imports from a Next.js Route Handler, and the same library
+the v0.5.x headless worker will use.
+
+> **Note on the webapp.** The public repo carries an `apps/web/` placeholder
+> README only. The actual webapp source lives in the private
+> [`fontfetch_fullstack`](https://github.com/niyamvora/fontfetch_fullstack)
+> repo so the hosted product can evolve at its own pace. The CLI and
+> `@fontfetch/core` remain fully open source and are what this document
+> describes.
 
 ## Repo layout
 
@@ -74,8 +81,8 @@ URL
 |---|---|---|---|
 | `@fontfetch/core` | No (workspace-only) | — | Optional peer dep, dynamic `import()` |
 | `fontfetch` (CLI) | Yes (npm) | `@fontfetch/core` (bundled by tsup) | Inherits peer dep |
-| `apps/web` (planned) | No (deployed to Vercel) | `@fontfetch/core` | No — delegates headless to worker |
-| `apps/worker` (planned) | No (deployed to Render/Fly/Cloud Run) | `@fontfetch/core/headless` | Direct |
+| `apps/web` (private — fontfetch_fullstack repo) | No (deployed to AWS ECS Fargate) | `@fontfetch/core` | No — delegates headless to worker |
+| `apps/worker` (planned, private) | No (ECS Fargate sidecar) | `@fontfetch/core/headless` | Direct |
 
 The CLI publishes as a single bundled file: `tsup` inlines `@fontfetch/core`
 via `noExternal`, so npm consumers don't need any workspace machinery.
@@ -91,8 +98,14 @@ single bundled file. Playwright is an optional peer dep.
 
 **`headless.ts` lives in core, not the worker.** Both the CLI and the future
 worker need it; centralising it keeps the Playwright behaviour identical
-between local CLI runs and production webapp pulls. The webapp itself doesn't
-import it (Vercel can't run Chromium).
+between local CLI runs and production webapp pulls. The webapp's own
+container delegates headless work to a sibling ECS task rather than
+shipping Chromium in every web-tier image.
+
+**Optional `onProgress` callback in `pull()`.** Added in the post-1.0
+release. Lets non-CLI consumers stream typed `PullProgressEvent` updates
+to a UI without scraping logs. CLI ignores it; existing callers see no
+behaviour change.
 
 **Per-site, per-bucket output folder.** Multiple runs against different sites
 don't collide; within a site, files are organised by source (`google/`,
