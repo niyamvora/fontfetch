@@ -1,0 +1,41 @@
+name: validate-pairings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pairings/**'
+      - '.github/workflows/validate-pairings.yml'
+  pull_request:
+    paths:
+      - 'pairings/**'
+      - '.github/workflows/validate-pairings.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install ajv-cli + ajv-formats
+        run: npm install -g ajv-cli@5 ajv-formats@3
+      - name: Validate every pairing against the schema
+        run: |
+          set -e
+          shopt -s nullglob
+          fail=0
+          for f in pairings/*.json; do
+            base=$(basename "$f")
+            if [ "$base" = "_schema.json" ]; then continue; fi
+            echo "→ Validating $f"
+            if ! ajv validate --spec=draft2020 -c ajv-formats -s pairings/_schema.json -d "$f" --strict=false; then
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::One or more pairings failed schema validation"
+            exit 1
+          fi
+          echo "All pairings valid."

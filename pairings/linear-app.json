@@ -1,0 +1,26 @@
+{
+  "site": "Linear",
+  "url": "https://linear.app",
+  "submitter": "@niyamvora",
+  "fonts": [
+    {
+      "family": "Inter Display",
+      "role": "headlines",
+      "weights": [400, 500, 600, 700],
+      "foundry": "Rasmus Andersson",
+      "license": "open",
+      "free_alternatives": ["Inter Display is already open (OFL)"]
+    },
+    {
+      "family": "Inter",
+      "role": "body, ui",
+      "weights": [400, 500, 600],
+      "foundry": "Rasmus Andersson",
+      "license": "open",
+      "free_alternatives": ["Inter is already open (OFL)"]
+    }
+  ],
+  "tags": ["sans-serif", "saas", "productivity", "100-percent-open"],
+  "notes": "Entirely open-source typography — Inter and Inter Display are both released under the SIL Open Font License. A great reference for teams who want a 'Linear-quality' look without licensing commercial fonts.",
+  "source": "rsms.me/inter (Inter author), confirmed in site CSS"
+}

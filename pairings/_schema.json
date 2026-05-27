@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/niyamvora/fontfetch/main/pairings/_schema.json",
+  "title": "FontPairing",
+  "description": "A single entry in the fontfetch community font-pairing registry.",
+  "type": "object",
+  "required": ["site", "url", "fonts"],
+  "additionalProperties": false,
+  "properties": {
+    "site": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable site name, e.g. 'Stripe'"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical URL where the fonts are observable"
+    },
+    "submitter": {
+      "type": "string",
+      "pattern": "^@?[A-Za-z0-9_-]{1,39}$",
+      "description": "GitHub handle of the submitter (optional, for credit)"
+    },
+    "screenshot": {
+      "type": "string",
+      "description": "URL of a screenshot (GitHub user-images URL or a path under pairings/screenshots/)"
+    },
+    "fonts": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Fonts observed on the site",
+      "items": {
+        "type": "object",
+        "required": ["family", "role", "license"],
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Font family name as it appears in the site CSS"
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1,
+            "description": "How the font is used, e.g. 'headlines', 'body', 'code', 'ui'"
+          },
+          "weights": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 100, "maximum": 1000 },
+            "description": "Observed weights, e.g. [400, 500, 700]"
+          },
+          "foundry": {
+            "type": "string",
+            "description": "Designer or foundry, e.g. 'Klim Type Foundry'"
+          },
+          "license": {
+            "enum": ["open", "commercial", "unknown"],
+            "description": "'open' = OFL or similar free-redistribution license; 'commercial' = needs a paid license; 'unknown' = couldn't determine"
+          },
+          "free_alternatives": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Open-source substitutes that look similar — the most useful field in the registry"
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+      "description": "Lowercase, hyphenated tags: 'sans-serif', 'serif', 'mono', 'fintech', 'devtools', etc."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Anything worth knowing about the pairing — context, variants, history"
+    },
+    "source": {
+      "type": "string",
+      "description": "How the font was identified, e.g. 'DevTools inspection on 2026-05-27', 'designer interview'"
+    }
+  }
+}

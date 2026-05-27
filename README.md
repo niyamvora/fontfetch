@@ -114,6 +114,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 ## Roadmap
 
 - [x] **v0.1** — Static `@font-face` extraction, ready-to-use CSS, manifest, README
+- [ ] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
 - [ ] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
 - [ ] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite` / `astro`
 - [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
@@ -127,6 +128,12 @@ Want one of these sooner? Open an issue or vote on existing ones.
 Font files are software, licensed under EULAs. **fontfetch is for local design exploration, not for shipping commercial fonts you haven't licensed.** A few hours of mockup work in a private project is one thing; bundling Sohne in production without paying Klim is a different thing. We don't gate it — we trust you to know the difference.
 
 For shippable fonts, look at the [Google Fonts](https://fonts.google.com) catalog or the [SIL Open Font License](https://openfontlicense.org/) library — these are designed to be self-hosted freely.
+
+## Font pairings registry
+
+[`pairings/`](./pairings) is a community-curated list of fonts used by real websites — with **free OFL alternatives** for every commercial font.
+
+[**→ Submit a pairing**](https://github.com/niyamvora/fontfetch/issues/new?template=font_pairing.yml) (fill a form, drag a screenshot, done — or [ask an AI to do it for you](./pairings#b-ask-an-ai-to-do-it-for-you)).
 
 ## Contributing
 

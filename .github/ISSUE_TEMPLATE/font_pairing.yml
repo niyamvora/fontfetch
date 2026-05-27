@@ -1,0 +1,104 @@
+name: Submit a font pairing
+description: Share the fonts a website uses, with free OFL alternatives for any commercial fonts
+title: "Pairing: <site name>"
+labels: [pairing]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing to the registry! Two ways to fill this out:
+
+        1. **Manually** — fill the fields below
+        2. **Let AI do it** — copy the prompt from [pairings/README.md](https://github.com/niyamvora/fontfetch/blob/main/pairings/README.md#b-ask-an-ai-to-do-it-for-you) into Claude/ChatGPT/Cursor with the site URL, paste the JSON it generates as a comment
+
+        Either way, drag-and-drop a screenshot of the site into any text box and GitHub will upload + link it for you.
+
+  - type: input
+    id: site
+    attributes:
+      label: Site name
+      description: Display name, e.g. "Stripe", "Linear"
+      placeholder: Linear
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      description: Canonical URL where the fonts are observable
+      placeholder: https://linear.app
+    validations:
+      required: true
+
+  - type: textarea
+    id: headline_font
+    attributes:
+      label: Headline / display font
+      description: |
+        Family name, role, weights, license (open/commercial/unknown), and free alternatives if commercial.
+        One field per line is fine — we'll structure it.
+      placeholder: |
+        Family: Inter Display
+        Role: headlines
+        Weights: 500, 600, 700
+        Foundry: Rasmus Andersson
+        License: open
+        Free alternatives: already open (OFL)
+    validations:
+      required: true
+
+  - type: textarea
+    id: body_font
+    attributes:
+      label: Body / UI font
+      description: Same format as above. Leave blank if the headline font is also used for body.
+      placeholder: |
+        Family: Inter
+        Role: body, ui
+        Weights: 400, 500, 600
+        License: open
+
+  - type: textarea
+    id: other_fonts
+    attributes:
+      label: Other fonts (mono, accent, etc.)
+      description: One block per font, same format.
+      placeholder: |
+        Family: JetBrains Mono
+        Role: code
+        License: open
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drag-and-drop an image here. GitHub will host it automatically.
+      placeholder: Drop image here
+
+  - type: input
+    id: tags
+    attributes:
+      label: Tags
+      description: Lowercase, hyphenated, comma-separated
+      placeholder: sans-serif, saas, productivity
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything worth knowing — context, variants, history
+
+  - type: input
+    id: source
+    attributes:
+      label: How did you identify the fonts?
+      placeholder: DevTools inspection, designer blog post, etc.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirm
+      options:
+        - label: I'm releasing this entry into the public domain (CC0) for use in the registry
+          required: true

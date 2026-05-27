@@ -6,6 +6,84 @@ Versions are signals of scope, not promises of timing.
 
 Static `@font-face` extraction. Per-site folder with `files/`, `fonts.css`, `fonts.json`, `README.md`.
 
+## v0.1.1 — community font-pairing registry
+
+A community-driven registry of font pairings used by real websites — with screenshots, font names, foundry info, and free OFL alternatives. The CLI itself doesn't change in this version; v0.1.1 ships the *repo infrastructure* for crowdsourced pairings.
+
+### What ships
+
+```
+pairings/
+├── README.md                    Contribution guide + schema overview
+├── _schema.json                 JSON Schema (Draft 2020-12)
+└── <site-slug>.json             One file per pairing
+
+.github/ISSUE_TEMPLATE/
+└── font_pairing.yml             Structured form for non-technical submitters
+
+.github/workflows/
+└── validate-pairings.yml        Runs ajv against _schema.json on PRs
+```
+
+### Schema (per pairing)
+
+```json
+{
+  "site": "string (display name)",
+  "url": "string (URL)",
+  "submitter": "string (github handle, optional)",
+  "screenshot": "string (relative path to png/jpg, optional)",
+  "fonts": [
+    {
+      "family": "string",
+      "role": "string (headline, body, code, ui, etc.)",
+      "weights": "number[]",
+      "foundry": "string (optional)",
+      "license": "open | commercial | unknown",
+      "free_alternatives": "string[] (font family names)"
+    }
+  ],
+  "tags": "string[] (sans-serif, serif, mono, fintech, devtools, etc.)",
+  "notes": "string (optional)"
+}
+```
+
+### Submission flow
+
+**Path A — Issue template (low friction):**
+1. Contributor opens an issue from the "Submit a font pairing" template
+2. Form fields prompt for URL, fonts, weights, alternatives, screenshot URL
+3. Maintainer (or, later, a bot) converts to JSON in a PR
+4. Schema validation runs in CI
+
+**Path B — Direct PR (for git-comfortable contributors):**
+1. Fork → add `pairings/<slug>.json` + optional screenshot under `pairings/screenshots/`
+2. Open PR
+3. Schema validation runs in CI
+4. Merge
+
+### Why this differentiates fontfetch
+
+- **No existing OSS registry exists** — fonts-in-use.com and typewolf.com are paywalled / human-curated, not community-submittable
+- **`free_alternatives` ties pairings back to the CLI mission** — "here's the commercial font, here's the OFL substitute you can actually ship"
+- **Each pairing is an attribution credit** for the submitter — drives organic distribution
+- **Machine-readable** — third parties can consume `pairings/*.json` as a data source (font-picker plugins, design tooling, etc.)
+
+### Seed content for launch
+
+Ship v0.1.1 with at least 5 seed pairings to prove the format works and give browsers something to look at on day one:
+- Stripe (Söhne + Söhne Mono)
+- Linear (Inter Display + Inter)
+- Vercel (Geist + Geist Mono)
+- Anthropic (Tiempos Headline + Styrene B)
+- One Google-Fonts-only site (e.g., a popular Tailwind UI demo) to highlight the "100% open" path
+
+### Future iterations
+
+- **v0.1.2** — bot that auto-creates a PR from the issue template, removing the maintainer triage step
+- **v0.1.3** — auto-generated `PAIRINGS.md` index in the repo root with a sortable table
+- **v0.2+** — webapp at `fontfetch.dev` that renders pairings beautifully and lets you click "rip with fontfetch" to run the CLI on that URL
+
 ## v0.2 — Playwright mode
 
 `--headless` flag. Spawns a headless Chromium, loads the page, awaits `document.fonts.ready`, dumps fonts from `document.fonts.values()` and the network log.

@@ -1,0 +1,26 @@
+{
+  "site": "Vercel",
+  "url": "https://vercel.com",
+  "submitter": "@niyamvora",
+  "fonts": [
+    {
+      "family": "Geist",
+      "role": "headlines, body, ui",
+      "weights": [400, 500, 600, 700],
+      "foundry": "Vercel (designed with Basement Studio)",
+      "license": "open",
+      "free_alternatives": ["Geist is already open (OFL)"]
+    },
+    {
+      "family": "Geist Mono",
+      "role": "code",
+      "weights": [400, 500],
+      "foundry": "Vercel (designed with Basement Studio)",
+      "license": "open",
+      "free_alternatives": ["Geist Mono is already open (OFL)"]
+    }
+  ],
+  "tags": ["sans-serif", "mono", "developer-tools", "100-percent-open"],
+  "notes": "Vercel released Geist (sans + mono) under the SIL Open Font License in 2023. Available on Google Fonts and via `geist-font` on npm — drop-in for Next.js via `next/font/google`.",
+  "source": "vercel.com/font announcement and Geist Google Fonts page"
+}

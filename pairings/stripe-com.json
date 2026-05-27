@@ -1,0 +1,26 @@
+{
+  "site": "Stripe",
+  "url": "https://stripe.com",
+  "submitter": "@niyamvora",
+  "fonts": [
+    {
+      "family": "Sohne",
+      "role": "headlines, body",
+      "weights": [400, 500, 700],
+      "foundry": "Klim Type Foundry",
+      "license": "commercial",
+      "free_alternatives": ["Inter", "Manrope", "Outfit"]
+    },
+    {
+      "family": "Sohne Mono",
+      "role": "code",
+      "weights": [400, 500],
+      "foundry": "Klim Type Foundry",
+      "license": "commercial",
+      "free_alternatives": ["JetBrains Mono", "IBM Plex Mono", "Geist Mono"]
+    }
+  ],
+  "tags": ["sans-serif", "fintech", "developer-tools"],
+  "notes": "Sohne is the workhorse across all Stripe surfaces — marketing, docs, dashboard. The pairing with Sohne Mono in code samples is unusually consistent across the entire product.",
+  "source": "Public CSS inspection at https://stripe.com (font-family declarations include 'sohne-var')"
+}
