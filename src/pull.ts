@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from './parse.js';
-import { buildFontsCss, buildFontsJson, buildReadme } from './emit.js';
+import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview } from './emit.js';
+import { classifyFaces, summarize } from './license.js';
 import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from './utils.js';
 import type { CssSource, OrphanFile, PullOptions, PullResult } from './types.js';
 import { FONT_EXT_RE } from './utils.js';
@@ -133,6 +134,16 @@ export async function pull({
   await fs.writeFile(path.join(outDir, 'fonts.css'), buildFontsCss(faces));
   await fs.writeFile(path.join(outDir, 'fonts.json'), buildFontsJson(faces, orphans));
   await fs.writeFile(path.join(outDir, 'README.md'), buildReadme(host, faces, downloaded, orphans));
+
+  const classified = classifyFaces(faces);
+  const licenseSummary = summarize(classified);
+  await fs.writeFile(
+    path.join(outDir, 'LICENSE_REVIEW.md'),
+    buildLicenseReview(host, classified, licenseSummary),
+  );
+  log.info(
+    `→ License review: ${licenseSummary.open} open / ${licenseSummary.commercial} commercial / ${licenseSummary.unknown} unknown`,
+  );
 
   for (const target of emit) {
     const emitter = EMITTERS[target];
