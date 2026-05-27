@@ -1,6 +1,6 @@
 # fontfetch
 
-> Rip every web font from any site into a project-ready folder — with CSS, manifest, and framework configs ready to drop in.
+> Download every web font from any site into a project-ready folder — with CSS, manifest, and framework configs ready to drop in.
 
 <p>
   <a href="https://www.npmjs.com/package/fontfetch"><img src="https://img.shields.io/npm/v/fontfetch.svg?style=flat-square" alt="npm" /></a>
@@ -29,7 +29,7 @@ That's it. Real font files, a ready-to-paste `fonts.css` with local URLs, a JSON
 
 ## Why this exists
 
-You're mocking up a design. You see a font you like on a marketing site. You want to use it locally for a few hours — not commit copyright infringement, just iterate fast on a comp.
+You're mocking up a design. You see a font you like on a marketing site. You want to test it locally for a few hours of iteration — not ship it to production, just see how your design feels with that typography.
 
 The existing options aren't great:
 - **`google-webfonts-helper`** — beautiful, but Google Fonts only
@@ -79,7 +79,7 @@ fontfetch <url> [outDir] [--headless]
 
 | Arg / Flag | Default | Notes |
 |---|---|---|
-| `<url>` | — | Page to scrape (use the page where the font is actually rendered) |
+| `<url>` | — | Page to download fonts from (use the page where the font is actually rendered) |
 | `[outDir]` | `./downloaded-fonts` | Per-site subfolder is created inside this |
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 
@@ -148,9 +148,9 @@ Want one of these sooner? Open an issue or vote on existing ones.
 
 ## Responsible use
 
-Font files are software, licensed under EULAs. **fontfetch is for local design exploration, not for shipping commercial fonts you haven't licensed.** A few hours of mockup work in a private project is one thing; bundling Sohne in production without paying Klim is a different thing. We don't gate it — we trust you to know the difference.
+Font files are software, licensed under EULAs. **fontfetch is intended for local design exploration and testing, not for shipping paid fonts you haven't licensed.** Using a font for a few hours of mockup work in a private project is different from bundling it into a production app. We don't gate the tool — we trust you to know the difference and respect foundry licenses.
 
-For shippable fonts, look at the [Google Fonts](https://fonts.google.com) catalog or the [SIL Open Font License](https://openfontlicense.org/) library — these are designed to be self-hosted freely.
+For production use, the [Google Fonts](https://fonts.google.com) catalog and the [SIL Open Font License](https://openfontlicense.org/) library are designed to be self-hosted freely. Every entry in our [pairings registry](./pairings) lists free alternatives for paid fonts.
 
 ## Font pairings registry
 

@@ -11,7 +11,7 @@ Usage:
   fontfetch <url> [outDir] [flags]
 
 Arguments:
-  <url>           Page to scrape fonts from (https://example.com)
+  <url>           Page to download fonts from (https://example.com)
   [outDir]        Directory to write output into (default: ./downloaded-fonts)
 
 Flags:

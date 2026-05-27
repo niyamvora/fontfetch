@@ -82,7 +82,7 @@ Ship v0.1.1 with at least 5 seed pairings to prove the format works and give bro
 
 - **v0.1.2** — bot that auto-creates a PR from the issue template, removing the maintainer triage step
 - **v0.1.3** — auto-generated `PAIRINGS.md` index in the repo root with a sortable table
-- **v0.2+** — webapp at `fontfetch.dev` that renders pairings beautifully and lets you click "rip with fontfetch" to run the CLI on that URL
+- **v0.2+** — webapp at `fontfetch.dev` that renders pairings beautifully and lets you click "download with fontfetch" to run the CLI on that URL
 
 ## v0.2 — Playwright mode ✓ shipped
 

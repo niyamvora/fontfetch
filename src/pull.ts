@@ -88,7 +88,7 @@ export async function pull({ url, baseDir, headless = false }: PullOptions): Pro
 
   log.info(`→ Found ${faces.length} @font-face declaration(s), ${urlToLocal.size} unique file(s)`);
   if (urlToLocal.size === 0) {
-    log.info('  (Nothing to download. Site may load fonts via JS, or block scrapers.)');
+    log.info('  (Nothing to download. Site may load fonts via JS, or block automated requests. Try --headless.)');
     return { outDir, faces, downloaded: 0, total: 0 };
   }
 
