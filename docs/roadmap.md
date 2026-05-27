@@ -84,9 +84,9 @@ Ship v0.1.1 with at least 5 seed pairings to prove the format works and give bro
 - **v0.1.3** — auto-generated `PAIRINGS.md` index in the repo root with a sortable table
 - **v0.2+** — webapp at `fontfetch.dev` that renders pairings beautifully and lets you click "rip with fontfetch" to run the CLI on that URL
 
-## v0.2 — Playwright mode
+## v0.2 — Playwright mode ✓ shipped
 
-`--headless` flag. Spawns a headless Chromium, loads the page, awaits `document.fonts.ready`, dumps fonts from `document.fonts.values()` and the network log.
+`--headless` flag. Spawns a headless Chromium, loads the page, awaits `document.fonts.ready`, dumps every accessible `@font-face` rule from `document.styleSheets`, and merges with the static parser.
 
 Catches:
 - Adobe Typekit (`use.typekit.net`)
@@ -94,7 +94,15 @@ Catches:
 - SPAs that load fonts after hydration
 - Fonts injected by JS at runtime
 
-Playwright stays an `optionalDependencies` install — don't make every user download 200 MB of Chromium for the static path.
+Playwright stays a `peerDependencies` install with `optional: true` — the static path keeps zero runtime deps.
+
+### v0.2.1 — cross-origin networking (deferred)
+
+In headless mode we capture font URLs from the browser's network log as a backstop for cross-origin stylesheets whose `cssRules` throw. v0.2 logs these URLs but doesn't auto-download them (no family/weight metadata to write fonts.css from). v0.2.1 will:
+
+- Auto-download orphan URLs into `files/orphans/`
+- Emit a separate `orphan_files` array in `fonts.json`
+- Note orphans in the per-site README with instructions to manually wire `@font-face`
 
 ## v0.3 — framework emitters
 

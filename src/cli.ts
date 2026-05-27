@@ -2,21 +2,30 @@
 import { pull } from './pull.js';
 import { log } from './utils.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}
 
 Usage:
-  fontfetch <url> [outDir]
+  fontfetch <url> [outDir] [flags]
 
 Arguments:
-  <url>      Page to scrape fonts from (https://example.com)
-  [outDir]   Directory to write output into (default: ./downloaded-fonts)
+  <url>           Page to scrape fonts from (https://example.com)
+  [outDir]        Directory to write output into (default: ./downloaded-fonts)
+
+Flags:
+  --headless      Use Playwright to also capture JS-loaded fonts (SPAs,
+                  late-injected @font-face rules). Requires:
+                    npm install playwright
+                    npx playwright install chromium
+  -h, --help      Show this help
+  -v, --version   Print version
 
 Examples:
   fontfetch https://stripe.com
   fontfetch https://stripe.com ./fonts
+  fontfetch https://linear.app --headless
   npx fontfetch https://stripe.com
 
 Output (per site):
@@ -43,7 +52,14 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const [url, outDir = './downloaded-fonts'] = args;
+  const headless = args.includes('--headless');
+  const positional = args.filter((a: string) => !a.startsWith('--'));
+  const [url, outDir = './downloaded-fonts'] = positional;
+
+  if (!url) {
+    log.err('Missing <url> argument. Run with --help for usage.');
+    process.exit(1);
+  }
 
   try {
     new URL(url);
@@ -52,7 +68,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const result = await pull({ url, baseDir: outDir });
+  const result = await pull({ url, baseDir: outDir, headless });
 
   log.info('');
   if (result.total === 0) {

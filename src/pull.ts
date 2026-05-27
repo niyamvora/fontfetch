@@ -6,8 +6,9 @@ import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from './utils.js'
 import type { CssSource, PullOptions, PullResult } from './types.js';
 import { FONT_EXT_RE } from './utils.js';
 import { abs } from './utils.js';
+import { fetchHeadless } from './headless.js';
 
-export async function pull({ url, baseDir }: PullOptions): Promise<PullResult> {
+export async function pull({ url, baseDir, headless = false }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
   const filesDir = path.join(outDir, 'files');
@@ -30,7 +31,30 @@ export async function pull({ url, baseDir }: PullOptions): Promise<PullResult> {
     }
   }
 
-  const faces = cssSources.flatMap(({ text, base }) => extractFontFaces(text, base));
+  if (headless) {
+    log.info('→ Running headless mode (Playwright)...');
+    try {
+      const result = await fetchHeadless(url);
+      cssSources.push(...result.cssSources);
+      log.info(`  + ${result.cssSources.length} stylesheet block(s) from headless`);
+      if (result.networkFontUrls.length > 0) {
+        log.info(`  + ${result.networkFontUrls.length} font URL(s) observed in network (logged only)`);
+      }
+    } catch (e) {
+      log.warn(`  ! Headless mode failed: ${(e as Error).message}`);
+      log.warn('  Continuing with static results.');
+    }
+  }
+
+  const allFaces = cssSources.flatMap(({ text, base }) => extractFontFaces(text, base));
+  // Dedupe across static + headless sources (same rule can appear in both).
+  const seen = new Set<string>();
+  const faces = allFaces.filter((f) => {
+    const sig = `${f.family}|${f.weight}|${f.style}|${f.sources.map((s) => s.url).sort().join(',')}`;
+    if (seen.has(sig)) return false;
+    seen.add(sig);
+    return true;
+  });
 
   // Also catch <link rel="preload" as="font">
   const preloadRe = /<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*>/gi;

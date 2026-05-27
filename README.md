@@ -74,13 +74,14 @@ Requires Node 18+.
 ## Usage
 
 ```bash
-fontfetch <url> [outDir]
+fontfetch <url> [outDir] [--headless]
 ```
 
-| Arg | Default | Notes |
+| Arg / Flag | Default | Notes |
 |---|---|---|
 | `<url>` | — | Page to scrape (use the page where the font is actually rendered) |
 | `[outDir]` | `./downloaded-fonts` | Per-site subfolder is created inside this |
+| `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 
 Examples:
 
@@ -88,7 +89,29 @@ Examples:
 fontfetch https://stripe.com
 fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
+fontfetch https://some-spa.com --headless
 ```
+
+### Headless mode (v0.2)
+
+By default fontfetch is **static** — it fetches the HTML, reads every linked stylesheet and inline `<style>`, and parses `@font-face` rules. That covers ~90% of real-world sites and is fast.
+
+For SPAs that load fonts at runtime, sites that inject `@font-face` blocks via JavaScript after hydration, or pages behind a Cloudflare challenge, pass `--headless`. fontfetch will launch a headless Chromium via Playwright, wait for `document.fonts.ready`, and dump every `@font-face` rule it can see — merged with the static results.
+
+Install Playwright + Chromium once:
+
+```bash
+npm install playwright
+npx playwright install chromium
+```
+
+Then:
+
+```bash
+fontfetch https://example.com --headless
+```
+
+Playwright is an **optional peer dependency** — install it only if you need this mode. The static path runs with zero runtime dependencies.
 
 ## How it works
 
@@ -114,8 +137,8 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 ## Roadmap
 
 - [x] **v0.1** — Static `@font-face` extraction, ready-to-use CSS, manifest, README
-- [ ] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
-- [ ] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
+- [x] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
+- [x] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
 - [ ] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite` / `astro`
 - [ ] **v0.4** — License heuristic: flag Google Fonts vs commercial foundries in `LICENSE_REVIEW.md`
 - [ ] **v0.5** — Visual preview gallery: auto-generate `preview.html` with pangrams per family × weight × style

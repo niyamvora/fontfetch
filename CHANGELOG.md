@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-27
+
+### Added
+- **`--headless` flag** — Playwright/Chromium mode that catches JS-loaded fonts, late-injected `@font-face` rules, and SPA-rendered content. Merges results with the static parser; dedupes faces across both sources.
+- New `src/headless.ts` module with dynamic import of Playwright (graceful fail if not installed).
+- Network-response listener that also observes font URLs at the browser level (logged in v0.2; auto-downloaded in v0.2.1).
+- Playwright is wired as an **optional peer dependency** — the static path stays zero-runtime-deps.
+
+### Changed
+- CLI help text and README document the new `--headless` flag and install steps.
+- Bumped to v0.2.0.
+
+### Notes
+- Headless mode requires `npm install playwright` + `npx playwright install chromium` once per machine.
+- Static mode is unchanged and still the default.
+
 ## [0.1.1] — 2026-05-27
 
 ### Added

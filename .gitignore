@@ -14,12 +14,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# editor / OS
+# editor / OS / tooling
 .DS_Store
 .vscode/
 .idea/
 *.swp
 *.swo
+.claude/
 
 # env
 .env

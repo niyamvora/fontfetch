@@ -16,6 +16,7 @@ export interface FontFace {
 export interface PullOptions {
   url: string;
   baseDir: string;
+  headless?: boolean;
 }
 
 export interface PullResult {
