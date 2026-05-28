@@ -1,9 +1,18 @@
 name: release
 
+# Manual-only. There's no tag-push trigger — the maintainer fires this from
+# the Actions tab (or `gh workflow run release.yml`) once a version bump has
+# landed on `main`. The workflow reads the version from
+# `packages/cli/package.json`, publishes to npm, and creates a matching
+# GitHub release + git tag. Use `dry_run: true` for a no-op trial that
+# stops short of `npm publish`.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (build + dry-publish, no npm publish, no tag, no release)"
+        type: boolean
+        default: false
 
 jobs:
   publish:
@@ -13,19 +22,56 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
           cache: pnpm
+
+      - name: Resolve CLI version
+        id: ver
+        run: |
+          version=$(node -p "require('./packages/cli/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Will publish fontfetch@$version"
+
+      - name: Abort if version already on npm
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          if npm view "fontfetch@${{ steps.ver.outputs.version }}" version > /dev/null 2>&1; then
+            echo "::error::fontfetch@${{ steps.ver.outputs.version }} is already on npm. Bump the version in packages/cli/package.json (and packages/core/package.json) before re-running."
+            exit 1
+          fi
+          echo "fontfetch@${{ steps.ver.outputs.version }} is not yet on npm — proceeding."
+
       - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run typecheck
+
+      - run: pnpm run test
+
       - run: pnpm run build
-      - name: Publish fontfetch (CLI) to npm
+
+      - name: Show what would publish (dry-run)
+        working-directory: packages/cli
+        run: pnpm publish --dry-run --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        if: ${{ inputs.dry_run == false }}
         working-directory: packages/cli
         run: pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - uses: softprops/action-gh-release@v2
+
+      - name: Create git tag + GitHub release
+        if: ${{ inputs.dry_run == false }}
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: v${{ steps.ver.outputs.version }}
           generate_release_notes: true
