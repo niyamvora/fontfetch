@@ -11,6 +11,14 @@ import { fetchHeadless } from './headless.js';
 import { EMITTERS } from './emitters/index.js';
 import { bucketForUrl } from './provenance.js';
 import { buildFallbacksForDir } from './fallback.js';
+import { discoverInternalLinks, CRAWL_PAGE_CAP } from './crawl.js';
+import { isNextjsSubsetUrl, probeNextjsSiblings } from './nextjs.js';
+import { summarizeVariableFonts, formatAxesInline } from './inspect.js';
+
+interface FetchedPage {
+  url: string;
+  html: string;
+}
 
 export async function pull({
   url,
@@ -20,31 +28,71 @@ export async function pull({
   force = false,
   onProgress,
   fallback = false,
+  pages = 1,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
   const filesDir = path.join(outDir, 'files');
   await fs.mkdir(filesDir, { recursive: true });
 
+  const cappedPages = Math.max(1, Math.min(Math.floor(pages), CRAWL_PAGE_CAP));
+
   onProgress?.({ type: 'phase', phase: 'fetch_html' });
   log.info(`→ Fetching page: ${url}`);
-  const html = await fetchText(url);
+  const entryHtml = await fetchText(url);
+  const fetchedPages: FetchedPage[] = [{ url, html: entryHtml }];
+
+  if (cappedPages > 1) {
+    onProgress?.({ type: 'phase', phase: 'crawl' });
+    const candidates = discoverInternalLinks(entryHtml, url, { max: cappedPages - 1 });
+    log.info(`→ Crawling up to ${cappedPages - 1} additional page(s) (${candidates.length} candidate link(s))`);
+    let crawlIndex = 1;
+    for (const link of candidates) {
+      crawlIndex++;
+      try {
+        const subHtml = await fetchText(link, { Referer: url });
+        fetchedPages.push({ url: link, html: subHtml });
+        log.info(`  ✓ ${link}`);
+        onProgress?.({ type: 'page_fetched', url: link, index: crawlIndex, total: cappedPages });
+      } catch (e) {
+        const reason = (e as Error).message;
+        log.warn(`  ✗ ${link} — ${reason}`);
+        onProgress?.({ type: 'page_failed', url: link, reason });
+      }
+    }
+  }
 
   onProgress?.({ type: 'phase', phase: 'parse_css' });
-  const cssLinks = extractStylesheetLinks(html, url);
-  const inlineCss = extractInlineStyles(html);
-  log.info(`  ${cssLinks.length} external stylesheet(s), ${inlineCss.length} inline <style> block(s)`);
+  const cssSources: CssSource[] = [];
+  const cssLinkSet = new Set<string>();
+  const perPage: { page: FetchedPage; uniqueLinks: string[]; inline: string[] }[] = [];
+  let totalInline = 0;
+  for (const page of fetchedPages) {
+    const links = extractStylesheetLinks(page.html, page.url);
+    const uniqueLinks: string[] = [];
+    for (const link of links) {
+      if (cssLinkSet.has(link)) continue;
+      cssLinkSet.add(link);
+      uniqueLinks.push(link);
+    }
+    const inline = extractInlineStyles(page.html);
+    totalInline += inline.length;
+    perPage.push({ page, uniqueLinks, inline });
+  }
+  log.info(`  ${cssLinkSet.size} external stylesheet(s), ${totalInline} inline <style> block(s)`);
 
-  const cssSources: CssSource[] = inlineCss.map((t) => ({ text: t, base: url }));
-  for (const link of cssLinks) {
-    try {
-      log.info(`→ Fetching CSS: ${link}`);
-      cssSources.push({ text: await fetchText(link, { Referer: url }), base: link });
-      onProgress?.({ type: 'css_fetched', url: link });
-    } catch (e) {
-      const reason = (e as Error).message;
-      log.warn(`  ! Failed: ${reason}`);
-      onProgress?.({ type: 'css_failed', url: link, reason });
+  for (const { page, uniqueLinks, inline } of perPage) {
+    for (const text of inline) cssSources.push({ text, base: page.url });
+    for (const link of uniqueLinks) {
+      try {
+        log.info(`→ Fetching CSS: ${link}`);
+        cssSources.push({ text: await fetchText(link, { Referer: page.url }), base: link });
+        onProgress?.({ type: 'css_fetched', url: link });
+      } catch (e) {
+        const reason = (e as Error).message;
+        log.warn(`  ! Failed: ${reason}`);
+        onProgress?.({ type: 'css_failed', url: link, reason });
+      }
     }
   }
 
@@ -78,11 +126,13 @@ export async function pull({
   // Also catch <link rel="preload" as="font">
   const preloadRe = /<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*>/gi;
   const extraUrls: string[] = [];
-  for (const m of html.matchAll(preloadRe)) {
-    const href = /href=["']([^"']+)["']/i.exec(m[0])?.[1];
-    if (href) {
-      const u = abs(href, url);
-      if (u && FONT_EXT_RE.test(u)) extraUrls.push(u);
+  for (const page of fetchedPages) {
+    for (const m of page.html.matchAll(preloadRe)) {
+      const href = /href=["']([^"']+)["']/i.exec(m[0])?.[1];
+      if (href) {
+        const u = abs(href, page.url);
+        if (u && FONT_EXT_RE.test(u)) extraUrls.push(u);
+      }
     }
   }
 
@@ -111,6 +161,30 @@ export async function pull({
   }
   for (const u of extraUrls) claim(u);
 
+  // Next.js next/font subset sibling enumeration. For each URL matching the
+  // `/_next/static/media/<hash>-s.<letter>.woff2` pattern we already have,
+  // probe the alphabet of sibling letters via HEAD and claim the responders.
+  // This catches the "1 file shown but family ships 8 unicode subsets" trap.
+  const discoveredNextjsSiblings: string[] = [];
+  const seedUrls = [...urlToLocal.keys()];
+  const probeSeeds = seedUrls.filter(isNextjsSubsetUrl);
+  if (probeSeeds.length > 0) {
+    onProgress?.({ type: 'phase', phase: 'probe_nextjs' });
+    log.info(`→ Probing Next.js subset siblings for ${probeSeeds.length} URL(s)`);
+    for (const seed of probeSeeds) {
+      const siblings = await probeNextjsSiblings(seed, { Referer: url });
+      const fresh = siblings.filter((s) => !urlToLocal.has(s));
+      for (const s of fresh) {
+        claim(s);
+        discoveredNextjsSiblings.push(s);
+      }
+      if (fresh.length > 0) {
+        log.info(`  + ${fresh.length} Next.js sibling(s) for ${seed}`);
+      }
+      onProgress?.({ type: 'nextjs_siblings', sourceUrl: seed, discovered: fresh.length });
+    }
+  }
+
   // Orphans: font URLs observed in the network log that aren't referenced by any
   // parsed @font-face source. Usually from cross-origin stylesheets whose cssRules
   // we can't read (e.g. Typekit). We download them but can't emit @font-face for
@@ -133,9 +207,33 @@ export async function pull({
   onProgress?.({ type: 'faces_found', count: faces.length, files: urlToLocal.size });
   log.info(`→ Found ${faces.length} @font-face declaration(s), ${urlToLocal.size} unique file(s)`);
   if (urlToLocal.size === 0) {
-    log.info('  (Nothing to download. Site may load fonts via JS, or block automated requests. Try --headless.)');
+    log.info('');
+    log.info('  This is usually fixable. Try one of:');
+    if (!headless) {
+      log.info('    --headless           (most likely fix: site loads fonts via JS)');
+    }
+    if (cappedPages === 1) {
+      log.info('    --pages=5            (the entry page might not reference all fonts)');
+    }
+    if (headless && cappedPages > 1) {
+      log.info("    Both --headless and --pages are on. If you're still seeing 0 files,");
+      log.info('    the site likely loads fonts behind a login or via a non-CSS mechanism.');
+    } else {
+      log.info("  If the site is behind a login, fontfetch can't help.");
+    }
+    log.info('');
+    onProgress?.({ type: 'empty_help_hinted' });
     onProgress?.({ type: 'done', downloaded: 0, total: 0, outDir });
-    return { outDir, faces, orphans: [], downloaded: 0, total: 0 };
+    return {
+      outDir,
+      faces,
+      orphans: [],
+      downloaded: 0,
+      total: 0,
+      variableFonts: [],
+      pagesCrawled: fetchedPages.length,
+      discoveredNextjsSiblings,
+    };
   }
 
   onProgress?.({ type: 'phase', phase: 'classify' });
@@ -166,7 +264,16 @@ export async function pull({
     log.warn('');
     onProgress?.({ type: 'aborted_all_commercial', count: licenseSummary.commercial });
     onProgress?.({ type: 'done', downloaded: 0, total: urlToLocal.size, outDir });
-    return { outDir, faces, orphans: [], downloaded: 0, total: urlToLocal.size };
+    return {
+      outDir,
+      faces,
+      orphans: [],
+      downloaded: 0,
+      total: urlToLocal.size,
+      variableFonts: [],
+      pagesCrawled: fetchedPages.length,
+      discoveredNextjsSiblings,
+    };
   }
 
   onProgress?.({ type: 'phase', phase: 'download' });
@@ -201,6 +308,28 @@ export async function pull({
       log.warn(`  ✗ ${name} — ${reason}`);
       onProgress?.({ type: 'file_failed', name, reason });
     }
+  }
+
+  // Variable-font surfacing. Inspect each downloaded binary for variation
+  // axes; if any are present, surface a one-liner so the user knows their
+  // single file is actually the whole family. Non-fatal.
+  onProgress?.({ type: 'phase', phase: 'inspect_variable' });
+  const variableFonts = await summarizeVariableFonts(filesDir);
+  if (variableFonts.length > 0) {
+    const subject =
+      variableFonts.length === 1
+        ? `One variable font detected: ${variableFonts[0].family} (${formatAxesInline(variableFonts[0].axes)})`
+        : `${variableFonts.length} variable fonts detected:`;
+    log.info(`  ℹ ${subject}`);
+    if (variableFonts.length === 1) {
+      log.info('    All weights and italic styles live in this single binary.');
+    } else {
+      for (const vf of variableFonts) {
+        log.info(`    • ${vf.family} (${formatAxesInline(vf.axes)})`);
+      }
+      log.info('    Every weight/italic of each family lives in its single binary.');
+    }
+    onProgress?.({ type: 'variable_fonts', fonts: variableFonts });
   }
 
   let fallbackBlocks: string[] = [];
@@ -239,5 +368,14 @@ export async function pull({
 
   onProgress?.({ type: 'phase', phase: 'done' });
   onProgress?.({ type: 'done', downloaded, total: urlToLocal.size, outDir });
-  return { outDir, faces, orphans, downloaded, total: urlToLocal.size };
+  return {
+    outDir,
+    faces,
+    orphans,
+    downloaded,
+    total: urlToLocal.size,
+    variableFonts,
+    pagesCrawled: fetchedPages.length,
+    discoveredNextjsSiblings,
+  };
 }

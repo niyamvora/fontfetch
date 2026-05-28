@@ -1,3 +1,5 @@
+import type { VariableFontSummary } from './inspect.js';
+
 export interface FontSource {
   url: string;
   format: string | null;
@@ -44,6 +46,13 @@ export interface PullOptions {
    * boxes during the font load.
    */
   fallback?: boolean;
+  /**
+   * Crawl up to N pages starting from `url` and merge the fonts seen across
+   * all of them. Defaults to `1` (entry page only — the v1.0 behaviour).
+   * Capped at 50 to keep runtime bounded. Useful when a homepage uses a
+   * different family from /blog or /pricing.
+   */
+  pages?: number;
 }
 
 /**
@@ -52,13 +61,18 @@ export interface PullOptions {
  * shape stable; add new variants rather than mutating existing ones.
  */
 export type PullProgressEvent =
-  | { type: 'phase'; phase: 'fetch_html' | 'parse_css' | 'extract_faces' | 'download' | 'classify' | 'done' }
+  | { type: 'phase'; phase: 'fetch_html' | 'parse_css' | 'extract_faces' | 'download' | 'classify' | 'done' | 'crawl' | 'probe_nextjs' | 'inspect_variable' }
+  | { type: 'page_fetched'; url: string; index: number; total: number }
+  | { type: 'page_failed'; url: string; reason: string }
   | { type: 'css_fetched'; url: string }
   | { type: 'css_failed'; url: string; reason: string }
   | { type: 'faces_found'; count: number; files: number }
   | { type: 'file_downloaded'; name: string; bucket: string; bytes: number; index: number; total: number }
   | { type: 'file_failed'; name: string; reason: string }
   | { type: 'orphan'; url: string; file: string }
+  | { type: 'nextjs_siblings'; sourceUrl: string; discovered: number }
+  | { type: 'variable_fonts'; fonts: VariableFontSummary[] }
+  | { type: 'empty_help_hinted' }
   | { type: 'classified'; open: number; commercial: number; unknown: number }
   | { type: 'aborted_all_commercial'; count: number }
   | { type: 'done'; downloaded: number; total: number; outDir: string };
@@ -74,6 +88,16 @@ export interface PullResult {
   orphans: OrphanFile[];
   downloaded: number;
   total: number;
+  /**
+   * One entry per variable font detected on disk after download. Empty when
+   * no downloads happened or when none of the binaries expose variation
+   * axes. Populated by `pull()` via `summarizeVariableFonts()`.
+   */
+  variableFonts: VariableFontSummary[];
+  /** Pages successfully fetched during the crawl. Always >= 1. */
+  pagesCrawled: number;
+  /** URLs discovered via the Next.js subset sibling probe. */
+  discoveredNextjsSiblings: string[];
 }
 
 export interface CssSource {

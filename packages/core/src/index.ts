@@ -62,8 +62,27 @@ export type {
 
 export { log } from './utils.js';
 
-export { inspect, formatInspectionReport } from './inspect.js';
-export type { InspectionReport, VariationAxis } from './inspect.js';
+export {
+  inspect,
+  formatInspectionReport,
+  summarizeVariableFonts,
+  formatAxesInline,
+} from './inspect.js';
+export type { InspectionReport, VariationAxis, VariableFontSummary } from './inspect.js';
+
+export {
+  discoverInternalLinks,
+  CRAWL_PAGE_CAP,
+} from './crawl.js';
+export type { CrawlOptions } from './crawl.js';
+
+export {
+  isNextjsSubsetUrl,
+  parseNextjsSubsetUrl,
+  nextjsSiblingCandidates,
+  probeNextjsSiblings,
+} from './nextjs.js';
+export type { NextjsSubsetMatch } from './nextjs.js';
 
 export {
   computeFallback,

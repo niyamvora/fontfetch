@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatInspectionReport, type InspectionReport } from '../src/inspect.js';
+import {
+  formatInspectionReport,
+  formatAxesInline,
+  type InspectionReport,
+  type VariationAxis,
+} from '../src/inspect.js';
 
 function baseReport(overrides: Partial<InspectionReport> = {}): InspectionReport {
   return {
@@ -99,5 +104,33 @@ describe('formatInspectionReport', () => {
     const features = Array.from({ length: 24 }, (_, i) => `f${String(i).padStart(2, '0')}`);
     const out = formatInspectionReport(baseReport({ features }));
     expect(out).toContain('+8'); // 24 total - 16 shown
+  });
+});
+
+describe('formatAxesInline', () => {
+  it('renders a normal axis as `tag min..max`', () => {
+    const axes: VariationAxis[] = [
+      { tag: 'wght', name: 'Weight', min: 100, default: 400, max: 900 },
+    ];
+    expect(formatAxesInline(axes)).toBe('wght 100..900');
+  });
+
+  it('collapses a static axis (min === max) to a single value', () => {
+    const axes: VariationAxis[] = [
+      { tag: 'slnt', name: 'Slant', min: 0, default: 0, max: 0 },
+    ];
+    expect(formatAxesInline(axes)).toBe('slnt 0');
+  });
+
+  it('joins multiple axes with a comma', () => {
+    const axes: VariationAxis[] = [
+      { tag: 'wght', name: 'Weight', min: 300, default: 400, max: 900 },
+      { tag: 'ital', name: 'Italic', min: 0, default: 0, max: 10 },
+    ];
+    expect(formatAxesInline(axes)).toBe('wght 300..900, ital 0..10');
+  });
+
+  it('returns an empty string for an empty axis list', () => {
+    expect(formatAxesInline([])).toBe('');
   });
 });

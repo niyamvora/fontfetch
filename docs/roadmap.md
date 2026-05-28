@@ -379,6 +379,61 @@ Individually each is a single tweet. Together they're a complete narrative: *"Yo
 
 The remaining v1.1 items (extra `--emit` targets, `fontfetch lookup` / `suggest`, full RFN-aware classifier upgrade, name-table license cross-ref) will land in **v1.2.x** point releases as they don't justify their own minor bump.
 
+## v1.2.1 — discovery + empty-state quick wins ✓ shipped
+
+Four small additions targeting the most common confusing outcomes of the v1.2 release. Each one fills a "fontfetch said 0 files but the page clearly has fonts" or "fontfetch said 1 file but the family is bigger than that" gap that came up immediately after v1.2 landed.
+
+### Variable-font hint after the pull summary
+
+After every download fontfetch inspects each binary on disk via `fontkit`. If any expose variation axes, the CLI prints a one-liner so users stop interpreting `1 unique file(s)` as a partial extraction:
+
+```
+→ Found 1 @font-face declaration(s), 1 unique file(s)
+…
+  ℹ One variable font detected: Saans (wght 300..900, ital 0..10).
+    All weights and italic styles live in this single binary.
+```
+
+Multi-font runs collapse to one line per family, then a single closing sentence. Non-fatal — parse failures are swallowed because the download itself already succeeded. `PullResult` now carries `variableFonts: VariableFontSummary[]` for non-CLI consumers (the webapp uses this to badge variable-font tiles in the run timeline).
+
+### Next.js `next/font` subset sibling probe
+
+`next/font` ships per-subset binaries under `/_next/static/media/<hash>-s.<letter>.<ext>`, one letter per unicode subset (latin, latin-ext, cyrillic, greek, …). A page only loads the subset matching its `<html lang>`, so the static parser sees a single file even when the family is published across 8+ binaries.
+
+v1.2.1 closes this. Any URL matching the pattern triggers an a-z HEAD probe of sibling letters in parallel (25 cancellable requests, ~150ms median). Letters that respond 2xx are claimed alongside the original and surfaced via a new `nextjs_siblings` progress event. Cheap, idempotent, and respects the existing Referer/UA conventions.
+
+### `--pages <N>` multi-page crawl
+
+`fontfetch <url> --pages=N` visits up to `N-1` same-origin internal links discovered in the entry HTML and merges fonts from all of them. Solves the "homepage loads Inter but `/blog` uses Tiempos" problem. Link discovery is intentionally shallow (one hop, no breadth-first expansion) and filters out anchors, `mailto:`/`tel:`/`javascript:` schemes, asset extensions (PDFs, images, font files, etc.), and the entry URL itself. Capped at `CRAWL_PAGE_CAP = 50` to keep runtime bounded.
+
+```bash
+fontfetch https://acme.com --pages=5         # homepage + 4 internal links
+```
+
+CSS dedupe is global across all pages, so a sitewide stylesheet is fetched once even if 20 pages reference it.
+
+### Focused empty-state output
+
+When `pull()` returns 0 declarations the CLI now prints a structured help frame instead of a single buried sentence. The suggestions adapt to the flags already in use:
+
+```
+→ Found 0 @font-face declarations.
+
+  This is usually fixable. Try one of:
+    --headless           (most likely fix: site loads fonts via JS)
+    --pages=5            (the entry page might not reference all fonts)
+  If the site is behind a login, fontfetch can't help.
+```
+
+`--headless` is suppressed if already enabled; `--pages=5` is suppressed once `--pages` is in play. If both are already on, the message pivots to "login wall" as the most likely remaining cause. A new `empty_help_hinted` progress event lets the webapp render the same frame in the SSE stream.
+
+### v1.2.1 shipping notes
+
+- 76 → 101 vitest cases (added `crawl`, `nextjs`, and inline axis formatter coverage). All green.
+- The static-mode summary line still reads `→ Found N @font-face declaration(s), M unique file(s)` — the CSS-fetch loop was restructured to keep the count line above the per-stylesheet fetches even when crawling multiple pages.
+- The monospace family-name heuristic in `--fallback` is unchanged. Promoted to v1.2.2 once we add `font.post.isFixedPitch` reading (capsize doesn't expose the flag through `fromBuffer`, so it needs its own `fontkit` round-trip).
+- No new runtime dependencies. Bundle size unchanged at ~2.2 MB.
+
 ## v1.3 — distribution surface (planned)
 
 Once v1.2 lands, the next gain is showing up where users already are. Each item below uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems.
