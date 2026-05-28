@@ -6,6 +6,13 @@ name: release
 # `packages/cli/package.json`, publishes to npm, and creates a matching
 # GitHub release + git tag. Use `dry_run: true` for a no-op trial that
 # stops short of `npm publish`.
+#
+# Authentication: npm Trusted Publishing (OIDC). No long-lived token in the
+# repo. GitHub Actions presents an OIDC identity to npm at publish time;
+# npm validates it matches the Trusted Publisher configured for the
+# `fontfetch` package (`niyamvora/fontfetch`, workflow `release.yml`,
+# action `npm publish`) and issues a short-lived publish credential.
+# Setup: https://docs.npmjs.com/trusted-publishers
 on:
   workflow_dispatch:
     inputs:
@@ -13,23 +20,18 @@ on:
         description: "Dry run (build + dry-publish, no npm publish, no tag, no release)"
         type: boolean
         default: false
-      otp:
-        description: "npm 2FA one-time password (required if your npm account has 'auth-and-writes' 2FA on; leave blank for Automation tokens which bypass 2FA)"
-        type: string
-        required: false
-        default: ""
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      # `id-token: write` is what makes Trusted Publishing work — it lets
+      # the runner mint an OIDC token that npm verifies against the trusted
+      # publisher config. `contents: write` is for the git-tag + GitHub
+      # release step at the end.
       contents: write
       id-token: write
     steps:
-      - name: Mask OTP in logs
-        if: ${{ inputs.otp != '' }}
-        run: echo "::add-mask::${{ inputs.otp }}"
-
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
@@ -39,6 +41,13 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
           cache: pnpm
+
+      # Trusted publishing requires npm >= 11.5.1; the npm bundled with
+      # Node 20 is older. Pin a known-good npm for the publish steps.
+      - name: Pin npm@latest (>= 11.5.1 needed for Trusted Publishing)
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm -v)"
 
       - name: Resolve CLI version
         id: ver
@@ -64,24 +73,17 @@ jobs:
 
       - run: pnpm run build
 
-      - name: Show what would publish (dry-run)
+      # Use `npm publish` (not `pnpm publish`) for the actual upload — npm's
+      # OIDC + provenance support is the most mature. The rest of the
+      # workflow stays on pnpm; only the publish call is delegated to npm.
+      - name: Show what would publish (npm dry-run)
         working-directory: packages/cli
-        run: pnpm publish --dry-run --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --dry-run --provenance --access public
 
-      - name: Publish to npm
+      - name: Publish to npm (Trusted Publishing)
         if: ${{ inputs.dry_run == false }}
         working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_OTP: ${{ inputs.otp }}
-        run: |
-          if [ -n "$NPM_OTP" ]; then
-            pnpm publish --provenance --access public --no-git-checks --otp="$NPM_OTP"
-          else
-            pnpm publish --provenance --access public --no-git-checks
-          fi
+        run: npm publish --provenance --access public
 
       - name: Create git tag + GitHub release
         if: ${{ inputs.dry_run == false }}
