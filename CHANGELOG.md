@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-05-28
+
+The "discovery + empty-state" point release. Four small additions targeting the most common confusing outcomes after v1.2 shipped: silent variable-font collapses, partial Next.js subset captures, single-page entry blind spots, and the bare-bones "0 declarations found" terminal output.
+
+### Added
+- **Variable-font hint surfaced after the pull summary.** Every downloaded file is inspected once via `fontkit`; if any binary exposes variation axes, the CLI now prints a one-line notice (`ℹ One variable font detected: Saans (wght 300..900, ital 0..10). All weights and italic styles live in this single binary.`) so users stop interpreting `1 unique file(s)` as "the rest are missing". Multi-font runs get one line per variable family. Non-fatal — parse failures are swallowed because the download itself already succeeded.
+- **Next.js `next/font` subset sibling enumeration.** Any URL matching `_next/static/media/<hash>-s.<letter>.<ext>` triggers an a-z HEAD probe across the sibling letters in parallel (25 cancellable requests, ~150ms). 2xx responders are claimed alongside the original. Captures the full multi-language family even when the visited page only loaded one unicode subset.
+- **`--pages <N>` flag** for shallow multi-page crawls. Visits up to `N-1` same-origin internal links from the entry HTML (deduped, hash-stripped, asset-extension-skipped) and merges every page's `@font-face` rules and preload hints into the final bundle. Capped at `CRAWL_PAGE_CAP = 50`. Default `1` preserves the v1.2 behaviour. Solves the "homepage only loads Inter but `/blog` uses Tiempos" case.
+- **Focused empty-state output.** When `pull()` finds zero `@font-face` declarations, the CLI now prints a 3-line "this is usually fixable" frame instead of a single buried sentence — `--headless` and `--pages=5` are suggested only when not already on, and the login-wall case is called out explicitly. Maps to a new `empty_help_hinted` progress event so the webapp can render the same hint in the run timeline.
+- New public exports on `@fontfetch/core`: `discoverInternalLinks`, `CRAWL_PAGE_CAP`, `isNextjsSubsetUrl`, `parseNextjsSubsetUrl`, `nextjsSiblingCandidates`, `probeNextjsSiblings`, `summarizeVariableFonts`, `formatAxesInline`. Types: `CrawlOptions`, `NextjsSubsetMatch`, `VariableFontSummary`.
+- New variants on `PullProgressEvent`: `page_fetched`, `page_failed`, `nextjs_siblings`, `variable_fonts`, `empty_help_hinted`, plus three new `phase` values (`crawl`, `probe_nextjs`, `inspect_variable`).
+- New optional `PullOptions.pages` (default `1`). New fields on `PullResult`: `variableFonts`, `pagesCrawled`, `discoveredNextjsSiblings`.
+
+### Notes
+- 101/101 vitest cases pass (76 → 101). New tests cover the Next.js subset URL pattern + candidate generation, the internal-link discoverer (same-origin, asset-skip, dedupe, hash-strip, www-folding), and the inline axis formatter. The variable-font surface integration is covered structurally by the `summarizeVariableFonts` helper and the existing `inspect` tests.
+- The monospace-family fallback heuristic in `--fallback` still uses the family-name regex from v1.2. Refining it to read `font.post.isFixedPitch` is queued for v1.2.x — capsize doesn't surface that flag in `fromBuffer`, so it needs its own `fontkit` round-trip and didn't justify shipping in this point release.
+- Bundle size unchanged at ~2.2 MB. No new runtime dependencies.
+
 ## [1.2.0] — 2026-05-28
 
 The "inspect + subset + fallback" release. Three flagship subcommands ship together: `fontfetch inspect` (terminal Wakamai Fondue), the `--fallback` flag (capsize-driven zero-CLS `@font-face` blocks), and `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset). Plus a batch of v1.1 quick wins folded in — `font-display: swap` default, `<link rel=preload>` hint emission, and a structured `onProgress` callback on `pull()` for non-CLI consumers.

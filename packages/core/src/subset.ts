@@ -151,6 +151,9 @@ export async function subset(options: SubsetOptions): Promise<SubsetReport> {
       orphans: [],
       downloaded: 0,
       total: 0,
+      variableFonts: [],
+      pagesCrawled: 1,
+      discoveredNextjsSiblings: [],
     };
   } else {
     log.info('→ Step 1/2: extracting fonts (static + headless)');

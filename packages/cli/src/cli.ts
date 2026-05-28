@@ -9,7 +9,7 @@ import {
   type EmitTarget,
 } from '@fontfetch/core';
 
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}
@@ -28,6 +28,10 @@ Flags (default command):
                     late-injected @font-face rules). Requires:
                       npm install playwright
                       npx playwright install chromium
+  --pages <N>       Crawl up to N pages (entry + N-1 internal links) and
+                    merge fonts across all of them. Solves the case where
+                    the homepage and /blog use different families. Default
+                    1 (entry only). Maximum 50.
   --emit <targets>  Comma-separated framework targets to emit alongside the
                     default fonts.css. One or more of: ${EMIT_TARGETS.join(', ')}
                     Examples:
@@ -52,6 +56,7 @@ Examples:
   fontfetch https://linear.app --headless
   fontfetch https://vercel.com --emit next,tailwind
   fontfetch https://stripe.com --headless --fallback --emit next
+  fontfetch https://acme.com --pages=5         (homepage + 4 internal links)
   fontfetch inspect ./fonts/example.com/files/google/Inter-Variable.woff2
   fontfetch subset https://stripe.com
   npx fontfetch https://shinobidata.com
@@ -144,10 +149,30 @@ async function runPull(args: string[]): Promise<void> {
     }
   }
 
-  const reservedFlags = new Set(['--headless', '--emit', '--force', '--fallback']);
+  // --pages <N> or --pages=N
+  let pages = 1;
+  const pagesIdx = args.findIndex((a: string) => a === '--pages' || a.startsWith('--pages='));
+  if (pagesIdx !== -1) {
+    const raw =
+      args[pagesIdx] === '--pages'
+        ? args[pagesIdx + 1]
+        : args[pagesIdx].slice('--pages='.length);
+    if (!raw) {
+      log.err('--pages requires a number, e.g. --pages=5 (or --pages 5).');
+      process.exit(1);
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      log.err(`--pages must be a positive integer, got '${raw}'.`);
+      process.exit(1);
+    }
+    pages = parsed;
+  }
+
+  const reservedFlags = new Set(['--headless', '--emit', '--force', '--fallback', '--pages']);
   const positional = args.filter((a: string, i: number) => {
     if (a.startsWith('--')) return false;
-    if (i > 0 && args[i - 1] === '--emit') return false;
+    if (i > 0 && (args[i - 1] === '--emit' || args[i - 1] === '--pages')) return false;
     if (reservedFlags.has(a)) return false;
     return true;
   });
@@ -164,7 +189,7 @@ async function runPull(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const result = await pull({ url, baseDir: outDir, headless, emit, force, fallback });
+  const result = await pull({ url, baseDir: outDir, headless, emit, force, fallback, pages });
 
   log.info('');
   if (result.total === 0) {

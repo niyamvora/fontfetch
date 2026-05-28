@@ -74,7 +74,7 @@ Requires Node 18+.
 ## Usage
 
 ```bash
-fontfetch <url> [outDir] [--headless] [--fallback] [--emit ...] [--force]
+fontfetch <url> [outDir] [--headless] [--pages <N>] [--fallback] [--emit ...] [--force]
 fontfetch inspect <font-file>
 fontfetch subset <url> [outDir]
 ```
@@ -84,6 +84,7 @@ fontfetch subset <url> [outDir]
 | `<url>` | — | Page to download fonts from (use the page where the font is actually rendered) |
 | `[outDir]` | `./downloaded-fonts` | Per-site subfolder is created inside this |
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
+| `--pages <N>` | `1` | Crawl up to N pages (entry + N-1 same-origin internal links) and merge fonts across all of them (v1.2.1). Max 50 |
 | `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2) |
 | `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `css` (default) |
 | `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
@@ -95,9 +96,23 @@ fontfetch https://shinobidata.com
 fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless
+fontfetch https://acme.com --pages=5
 fontfetch https://stripe.com --headless --fallback --emit next
 fontfetch inspect ./downloaded-fonts/example.com/files/google/Inter-Variable.woff2
 fontfetch subset https://stripe.com
+```
+
+### What's new in v1.2.1 — discovery + empty-state quick wins
+
+Four small additions targeting the most common confusing outcomes of the v1.2 release:
+
+- **Variable fonts now announce themselves.** After downloads complete fontfetch inspects every binary on disk; if any expose variation axes you get a one-line notice (`ℹ One variable font detected: Saans (wght 300..900, ital 0..10). All weights and italic styles live in this single binary.`) so `1 unique file(s)` stops reading as "the rest are missing."
+- **Next.js `next/font` subset siblings.** Any URL matching `_next/static/media/<hash>-s.<letter>.<ext>` triggers an alphabet-wide HEAD probe in parallel and adds the responders to the bundle. Captures the full multi-language family even when the visited page only loaded one unicode subset.
+- **`--pages <N>` multi-page crawl.** Visits up to `N-1` same-origin internal links from the entry HTML (deduped, hash-stripped, asset-extension-skipped) and merges every page's `@font-face` rules. Solves the "homepage loads Inter but `/blog` uses Tiempos" problem. Capped at 50; default 1.
+- **Focused empty-state output.** Zero `@font-face` declarations now prints a 3-line "this is usually fixable" frame with concrete next-step flags, instead of a single buried sentence.
+
+```bash
+fontfetch https://acme.com --pages=5
 ```
 
 ### What's new in v1.2 — inspect, subset, zero-CLS fallback
@@ -220,6 +235,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v0.6** — Provenance grouping: output split into `google/` / `adobe-typekit/` / `commercial/` / `open-cdn/` / `self-hosted/`
 - [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.md#v10--monorepo-restructure--shipped): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
 - [x] **v1.2** — [Inspect + subset + fallback release](./docs/roadmap.md#v12--flagship-inspect--subset--fallback-release--shipped-2026-05-28): `fontfetch inspect` (terminal Wakamai Fondue), `--fallback` (zero-CLS `@font-face` blocks via capsize), `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset, no Python). Plus `font-display: swap` default and preload-hint header on every emitted `fonts.css`.
+- [x] **v1.2.1** — [Discovery + empty-state quick wins](./docs/roadmap.md#v121--discovery--empty-state-quick-wins--shipped): variable-font hint after pull, Next.js subset sibling probe, `--pages <N>` multi-page crawl, focused 0-declaration output.
 - [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.
