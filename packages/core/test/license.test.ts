@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyFace, classifyFaces, summarize } from '../src/license.js';
+import { classifyFace, classifyFaces, summarize } from '../src/license/license.js';
 import type { FontFace } from '../src/types.js';
 
 function face(overrides: Partial<FontFace> & { url: string; family: string }): FontFace {

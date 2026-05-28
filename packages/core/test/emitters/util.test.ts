@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { familyToIdent, familyToKebab, tailwindBucket } from '../../src/emitters/util.js';
+import { familyToIdent, familyToKebab, tailwindBucket } from '../../src/emit/emitters/util.js';
 
 describe('familyToIdent', () => {
   it('camelCases multi-word families', () => {

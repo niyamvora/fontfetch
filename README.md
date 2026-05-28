@@ -74,9 +74,9 @@ Requires Node 18+.
 ## Usage
 
 ```bash
-fontfetch <url> [outDir] [--headless] [--pages <N>] [--fallback] [--emit ...] [--force]
+fontfetch <url> [outDir] [--headless] [--pages <N>] [--fallback] [--emit ...] [--formats ...] [--force]
 fontfetch inspect <font-file>
-fontfetch subset <url> [outDir]
+fontfetch subset <url> [outDir] [--whitelist <spec>] [--split-ranges[=<buckets>]]
 ```
 
 | Arg / Flag | Default | Notes |
@@ -85,9 +85,12 @@ fontfetch subset <url> [outDir]
 | `[outDir]` | `./downloaded-fonts` | Per-site subfolder is created inside this |
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 | `--pages <N>` | `1` | Crawl up to N pages (entry + N-1 same-origin internal links) and merge fonts across all of them (v1.2.1). Max 50 |
+| `--formats <list>` | — | Comma-separated allowlist of font formats to keep: `woff2`, `woff`, `ttf`, `otf`, `eot`. Faces with no matching source are dropped (v1.3). Default: keep every format the upstream CSS provides |
 | `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2) |
 | `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `css` (default) |
 | `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
+| `--whitelist <spec>` (subset) | — | Extra codepoints to always include, on top of the DOM walk. CSS `unicode-range` syntax: `U+00A0,U+20AC,U+0020-007F` (v1.3) |
+| `--split-ranges[=<buckets>]` (subset) | off | Emit one woff2 per Google Fonts language bucket (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`) and a chained `fonts.subset.css` (v1.3) |
 
 Examples:
 
@@ -97,10 +100,33 @@ fontfetch https://linear.app ./public/fonts
 fontfetch https://vercel.com /tmp/scratch
 fontfetch https://some-spa.com --headless
 fontfetch https://acme.com --pages=5
+fontfetch https://shinobidata.com --formats=woff2
 fontfetch https://stripe.com --headless --fallback --emit next
 fontfetch inspect ./downloaded-fonts/example.com/files/google/Inter-Variable.woff2
 fontfetch subset https://stripe.com
+fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC
+fontfetch subset https://stripe.com --split-ranges
 ```
+
+### What's new in v1.3
+
+Three additions that round out the subsetting pipeline. After v1.3, fontfetch takes a URL → folder, splits per Google Fonts language bucket, and runs entirely on Node — no Python required:
+
+- **`--formats=woff2` modern-only emit.** Restricts the kept faces and downloaded files to a chosen format allowlist (one or more of `woff2`, `woff`, `ttf`, `otf`, `eot`). Addresses a long-standing community ask for modern-format-only output. Halves the typical bundle size on a modern-browser-only site:
+  ```bash
+  fontfetch https://shinobidata.com --formats=woff2
+  ```
+- **`fontfetch subset --whitelist=U+00A0,U+20AC` — extra codepoints to always keep.** Same syntax as a CSS `unicode-range`. Pairs with the existing DOM-scrape pipeline so glyphs not rendered on page load (currency variants, breaking-space, icon-font glyphs injected by JS) stay alive in the subset. The `0x` shorthand is also accepted:
+  ```bash
+  fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC,U+0020-007F
+  ```
+- **`fontfetch subset --split-ranges` — Google-Fonts-style per-language emit.** For every downloaded font, fontfetch intersects its character set against the canonical Google Fonts buckets (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`) and emits one woff2 per bucket plus a chained `fonts.subset.css` with `unicode-range:` declarations. The output is interchangeable with Google Fonts' own `css2` payload for a multi-script family. Browsers lazy-load only the buckets they need at runtime:
+  ```bash
+  fontfetch subset https://stripe.com --split-ranges
+  fontfetch subset https://stripe.com --split-ranges=latin,latin-ext,vietnamese
+  ```
+
+No new runtime dependencies. The split flow reuses the existing `fontkit` runtime dep (already used by `inspect` and `--fallback`) and the `subset-font` peer dep.
 
 ### What's new in v1.2.1 — discovery + empty-state quick wins
 
@@ -214,15 +240,15 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 
 ## How it compares
 
-| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Zero-CLS fallback |
-|---|---|---|---|---|---|---|---|
-| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✗ |
-| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | ✗ |
-| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✓ (Nuxt/Vite only) |
-| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ |
-| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite | ✓ | ✓ (Node, no Python) | ✓ framework-agnostic |
+| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Per-language split | Modern-only | Zero-CLS fallback |
+|---|---|---|---|---|---|---|---|---|---|
+| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✓ (Google catalog only) | ✓ | ✗ |
+| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | partial (unicode-range computed) | partial | ✗ |
+| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✗ | n/a | ✓ (Nuxt/Vite only) |
+| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ | n/a | ✗ |
+| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite | ✓ | ✓ (Node, no Python) | ✓ Google Fonts buckets (v1.3) | ✓ `--formats=woff2` (v1.3) | ✓ framework-agnostic |
 
 ## Roadmap
 
@@ -236,6 +262,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.md#v10--monorepo-restructure--shipped): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
 - [x] **v1.2** — [Inspect + subset + fallback release](./docs/roadmap.md#v12--flagship-inspect--subset--fallback-release--shipped-2026-05-28): `fontfetch inspect` (terminal Wakamai Fondue), `--fallback` (zero-CLS `@font-face` blocks via capsize), `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset, no Python). Plus `font-display: swap` default and preload-hint header on every emitted `fonts.css`.
 - [x] **v1.2.1** — [Discovery + empty-state quick wins](./docs/roadmap.md#v121--discovery--empty-state-quick-wins--shipped): variable-font hint after pull, Next.js subset sibling probe, `--pages <N>` multi-page crawl, focused 0-declaration output.
+- [x] **v1.3** — [Modern emit + whitelist + per-language split](./docs/roadmap.md#v13--shipped-2026-05-28): `--formats=woff2` modern-only emit, `subset --whitelist=U+00A0,…` extra codepoints, `subset --split-ranges` Google-Fonts-style per-language woff2 + chained `fonts.subset.css` with `unicode-range:` declarations.
 - [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.

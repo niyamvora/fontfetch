@@ -1,5 +1,5 @@
-import type { FontFace, FontSource } from './types.js';
-import { FONT_EXT_RE, abs } from './utils.js';
+import type { FontFace, FontSource } from '../types.js';
+import { FONT_EXT_RE, abs } from '../lib/utils.js';
 
 export function extractStylesheetLinks(html: string, baseUrl: string): string[] {
   const out: string[] = [];

@@ -6,6 +6,38 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-05-28
+
+Three additions that round out the subsetting pipeline: format allowlists, codepoint whitelists, and Google-Fonts-style per-language splitting. After v1.3, fontfetch covers URL → folder extraction, per-language splits, and modern-format emit in a single CLI with no Python dependency.
+
+### Added
+- **`--formats=<list>` on the default pull command.** Comma-separated allowlist of font formats to keep (one or more of `woff2`, `woff`, `ttf`, `otf`, `eot`). Each face's `src:` list is narrowed to matching sources; faces with zero surviving sources are dropped with a warning rather than emitted broken. Addresses a long-standing community ask for modern-format-only output. Default behaviour is unchanged — every format the upstream CSS provides is still kept when the flag is absent.
+  ```bash
+  fontfetch https://shinobidata.com --formats=woff2          # modern-only output, halves bundle size
+  fontfetch https://acme.com --formats=woff2,woff             # slight legacy reach
+  ```
+- **`--whitelist=<spec>` on the `subset` subcommand.** Extra codepoints to always include in the subset on top of the DOM-walk result. Accepts the canonical CSS `unicode-range` syntax (`U+00A0,U+20AC,U+0020-007F`) and the more developer-ergonomic `0x` shorthand (`0xA0,0x20AC`). Pairs cleanly with the existing `preserveRanges` option for whole-script preservation.
+  ```bash
+  fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC
+  ```
+- **`--split-ranges` on the `subset` subcommand — Google-Fonts-style per-language emit.** For every downloaded font binary, fontfetch now opens it with `fontkit`, intersects its character set against the canonical Google Fonts buckets (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`), and emits one woff2 per bucket whose overlap is at least `MIN_GLYPHS_PER_BUCKET` (5) codepoints. A new `fonts.subset.css` is written next to the existing `fonts.css` with one `@font-face` per family per bucket carrying the matching `unicode-range:` declaration — interchangeable with what Google Fonts itself serves for a multi-script family. The DOM scrape is skipped in split-mode by design (split-mode is about ranged lazy-loading, not page-content subsetting). Optional value restricts to named buckets: `--split-ranges=latin,latin-ext`.
+  ```bash
+  fontfetch subset https://stripe.com --split-ranges
+  fontfetch subset https://stripe.com --split-ranges=latin,latin-ext,vietnamese
+  ```
+- New public exports on `@fontfetch/core`:
+  - `FONT_FORMATS`, `isFontFormat`, `resolveFormat`, `filterFacesByFormat`, `urlMatchesFormat` (from a new `formats.ts` module)
+  - `parseUnicodeRange`, `formatUnicodeRange`, `GOOGLE_FONTS_RANGES`, `MIN_GLYPHS_PER_BUCKET`, `expandBucket` (from a new `codepoints.ts` module)
+  - Types: `FontFormat`, `UnicodeRangeBucket`, `SplitFamilyReport`
+- New optional `PullOptions.formats` and `SubsetOptions.{ whitelist, splitRanges, splitBuckets }`. New optional `SubsetReport.{ splits, splitCss }` populated when `--split-ranges` is on.
+
+### Notes
+- No new runtime dependencies. The split flow reuses the existing `subset-font` peer dep (harfbuzzjs WASM) and the `fontkit` runtime dep that already powers `inspect` and `--fallback`.
+- Bundle size unchanged at ~2.2 MB.
+- The `--formats` filter is applied after the static + headless dedupe pass and before the filename-claim phase, so dropped faces never reach the downloader. Preload-link URLs (`<link rel="preload" as="font">`) are filtered by extension at the same point.
+- Split-mode honours `pullResult.faces` to recover the original `font-weight` / `font-style` for each emitted `@font-face`. In `skipPull` mode (no parsed faces available) the chained CSS defaults to `400/normal` per face — the binaries are still split correctly; only the CSS metadata is best-effort.
+- Test surface grew from 101 → 132 vitest cases (new: `formats` with 15 cases, `codepoints` with 16 cases). All green.
+
 ## [1.2.1] — 2026-05-28
 
 The "discovery + empty-state" point release. Four small additions targeting the most common confusing outcomes after v1.2 shipped: silent variable-font collapses, partial Next.js subset captures, single-page entry blind spots, and the bare-bones "0 declarations found" terminal output.

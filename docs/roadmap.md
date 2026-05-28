@@ -331,9 +331,9 @@ License      OFL-1.1 (from name table id 13)
 
 Output is screenshot-able by design. Glyph grid sample row is optional via `--glyphs`.
 
-### `--fallback` — kill CLS in one flag
+### `--fallback` — eliminate CLS in one flag
 
-Today fontfetch emits the `@font-face` rules but says nothing about CLS. `fontaine` (1.9k stars, active) and Next's `next/font` solve this for their own ecosystems via `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override`, but **no framework-agnostic CLI emits a CLS-killing fallback block today**. We do.
+Today fontfetch emits the `@font-face` rules but says nothing about CLS. `fontaine` (1.9k stars, active) and Next's `next/font` solve this for their own ecosystems via `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override`, but **no framework-agnostic CLI emits a zero-CLS fallback block today**. We do.
 
 ```
 @font-face {
@@ -434,9 +434,69 @@ When `pull()` returns 0 declarations the CLI now prints a structured help frame 
 - The monospace family-name heuristic in `--fallback` is unchanged. Promoted to v1.2.2 once we add `font.post.isFixedPitch` reading (capsize doesn't expose the flag through `fromBuffer`, so it needs its own `fontkit` round-trip).
 - No new runtime dependencies. Bundle size unchanged at ~2.2 MB.
 
-## v1.3 — distribution surface (planned)
+## v1.3 — shipped (2026-05-28)
 
-Once v1.2 lands, the next gain is showing up where users already are. Each item below uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems.
+Three additions that round out the subsetting pipeline — format allowlists, codepoint whitelists, and Google-Fonts-style per-language splitting. Each item maps to a real ask in the broader community:
+
+### `--formats=<list>` — modern-only emit
+
+Comma-separated allowlist on the default pull command (one or more of `woff2`, `woff`, `ttf`, `otf`, `eot`). Each face's `src:` list is narrowed to matching sources; faces with zero surviving sources are dropped with a warning rather than emitted broken. The preload-link URLs (`<link rel="preload" as="font">`) are filtered by extension at the same point so the preload header stays in sync.
+
+```bash
+fontfetch https://shinobidata.com --formats=woff2        # modern-only output, halves bundle size
+fontfetch https://acme.com --formats=woff2,woff           # slight legacy reach
+```
+
+Matches the long-standing community ask in [glyphhanger #8](https://github.com/zachleat/glyphhanger/issues/8) — `Default change: --formats=woff2 only`.
+
+Lives in a new `packages/core/src/formats.ts` module: `resolveFormat()` normalises CSS aliases (`truetype` → `ttf`, `opentype` → `otf`, `embedded-opentype` → `eot`) then falls back to the URL extension; `filterFacesByFormat()` narrows the parsed faces; `urlMatchesFormat()` handles the preload URLs. All three are re-exported from `@fontfetch/core`.
+
+### `fontfetch subset --whitelist=<spec>` — extra codepoints to always keep
+
+Extra codepoints to always include in the DOM-scraped subset, on top of whatever the page-walk produced. Accepts the canonical CSS `unicode-range` syntax (`U+00A0,U+20AC,U+0020-007F`) and an ergonomic `0x` shorthand (`0xA0,0x20AC`). Same shape as glyphhanger's `--whitelist=U+00A0` flag.
+
+```bash
+fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC
+```
+
+Use for dynamic content the static crawl can't see: currency variants, breaking-space, locale punctuation, icon-font glyphs injected by JS. Pairs cleanly with the existing `preserveRanges` option for whole-script preservation.
+
+### `fontfetch subset --split-ranges` — Google-Fonts-style per-language emit
+
+The flagship of v1.3. For every downloaded font, fontfetch opens it with `fontkit`, intersects its character set against the canonical Google Fonts buckets (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`), and emits one woff2 per bucket whose overlap is at least `MIN_GLYPHS_PER_BUCKET` codepoints (5). A new `fonts.subset.css` is written next to the existing `fonts.css` with one `@font-face` per family per bucket carrying the matching `unicode-range:` declaration — interchangeable with what Google Fonts itself serves for a multi-script family.
+
+```bash
+fontfetch subset https://stripe.com --split-ranges
+fontfetch subset https://stripe.com --split-ranges=latin,latin-ext,vietnamese
+```
+
+```
+→ Step 2/2: splitting each font by Google Fonts language ranges
+  ✓ google/Inter-Variable.latin.subset.woff2     14.2 KB (217 cp, −85%)
+  ✓ google/Inter-Variable.latin-ext.subset.woff2  8.7 KB (179 cp, −91%)
+  ✓ google/Inter-Variable.cyrillic.subset.woff2   6.1 KB (95 cp, −94%)
+  ✓ google/Inter-Variable.vietnamese.subset.woff2 4.3 KB (148 cp, −96%)
+  …
+        + chained @font-face block emitted at downloaded-fonts/stripe.com/fonts.subset.css
+```
+
+Split-mode skips the DOM scrape by design: split-mode is about ranged lazy-loading, not page-content subsetting. The browser will fetch only the buckets it needs at runtime via the `unicode-range:` declarations.
+
+Closes the long-standing positioning gap fontfetch had against [google-webfonts-helper](https://gwfh.mranftl.com/fonts) — fontfetch now produces equivalent output from arbitrary URLs, not just the Google Fonts catalog.
+
+### v1.3 shipping notes
+
+- No new runtime dependencies. The split flow reuses the existing `fontkit` runtime dep (already used by `inspect` and `--fallback`) and the `subset-font` peer dep (harfbuzzjs WASM).
+- Bundle size unchanged at ~2.2 MB.
+- New module: [packages/core/src/codepoints.ts](../packages/core/src/codepoints.ts) — `parseUnicodeRange()`, `formatUnicodeRange()`, and the canonical `GOOGLE_FONTS_RANGES` table captured verbatim from Google's `css2` endpoint. All re-exported from `@fontfetch/core`.
+- New module: [packages/core/src/formats.ts](../packages/core/src/formats.ts) — format resolution + face-list filtering. Also re-exported.
+- New types: `FontFormat`, `UnicodeRangeBucket`, `SplitFamilyReport`.
+- Test surface grew from 101 → 130 vitest cases (new: `formats`, `codepoints`).
+- The chained `fonts.subset.css` defaults to `font-weight: 400; font-style: normal` per face when only the binary is known (skipPull / orphan files). When `pullResult.faces` is populated (the typical case) the original weight/style is recovered automatically.
+
+## v1.4 — distribution surface (planned)
+
+Once v1.3 lands, the next gain is showing up where users already are. Each item below uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems.
 
 - **`fontfetch-action` GitHub Action.** PR comments on font drift: *"`apps/web/app/page.tsx` references a new `@font-face` — fetched it, classified `Söhne` as commercial, +180 KB. Consider one of these OFL alternatives from the pairings registry."* Distribution flywheel; every adopting repo is a starred-adjacent signal.
 - **`fontfetch diff <url1> <url2>`.** Detect font drift between two URLs (the staging-vs-prod use case, the rebrand-detect use case, the competitor-watch use case). The "Stripe rebrand: dropped Söhne, added Inter Display" tweet writes itself.
@@ -448,7 +508,7 @@ Once v1.2 lands, the next gain is showing up where users already are. Each item 
 - **Variable-font collapse hint.** When the extractor finds 9 static weight files plus a `.var.woff2` from the same family on the same CDN, recommend the variable file with a 1-line diff of the bundle size you'd save.
 - **`@fontfetch/registry` typed package.** Publish a thin npm wrapper around `pairings/*.json` so third-party tooling (font pickers, design plugins) can consume the registry with autocomplete and types. Turns the registry into a real ecosystem primitive.
 
-## Package layout (post v1.2)
+## Package layout (post v1.3)
 
 The current monorepo holds `@fontfetch/core` and `fontfetch` (CLI). v1.2+ adds slim sibling packages — each consumable on its own but composed under the single `npx fontfetch` verb:
 

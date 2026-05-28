@@ -1,5 +1,5 @@
 import type { CssSource } from './types.js';
-import { UA } from './utils.js';
+import { UA } from './lib/utils.js';
 
 export interface HeadlessResult {
   cssSources: CssSource[];

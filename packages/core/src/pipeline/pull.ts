@@ -1,19 +1,20 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from './parse.js';
-import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints } from './emit.js';
-import { classifyFaces, summarize } from './license.js';
-import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from './utils.js';
-import type { CssSource, OrphanFile, PullOptions, PullResult } from './types.js';
-import { FONT_EXT_RE } from './utils.js';
-import { abs } from './utils.js';
-import { fetchHeadless } from './headless.js';
-import { EMITTERS } from './emitters/index.js';
-import { bucketForUrl } from './provenance.js';
-import { buildFallbacksForDir } from './fallback.js';
-import { discoverInternalLinks, CRAWL_PAGE_CAP } from './crawl.js';
-import { isNextjsSubsetUrl, probeNextjsSiblings } from './nextjs.js';
-import { summarizeVariableFonts, formatAxesInline } from './inspect.js';
+import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from '../parse/parse.js';
+import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints } from '../emit/emit.js';
+import { classifyFaces, summarize } from '../license/license.js';
+import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from '../lib/utils.js';
+import type { CssSource, OrphanFile, PullOptions, PullResult } from '../types.js';
+import { FONT_EXT_RE } from '../lib/utils.js';
+import { abs } from '../lib/utils.js';
+import { fetchHeadless } from '../headless.js';
+import { EMITTERS } from '../emit/emitters/index.js';
+import { bucketForUrl } from '../license/provenance.js';
+import { buildFallbacksForDir } from '../inspect/fallback.js';
+import { discoverInternalLinks, CRAWL_PAGE_CAP } from '../parse/crawl.js';
+import { isNextjsSubsetUrl, probeNextjsSiblings } from '../platforms/nextjs.js';
+import { summarizeVariableFonts, formatAxesInline } from '../inspect/inspect.js';
+import { filterFacesByFormat, urlMatchesFormat } from '../formats/formats.js';
 
 interface FetchedPage {
   url: string;
@@ -29,6 +30,7 @@ export async function pull({
   onProgress,
   fallback = false,
   pages = 1,
+  formats,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
@@ -116,12 +118,29 @@ export async function pull({
   const allFaces = cssSources.flatMap(({ text, base }) => extractFontFaces(text, base));
   // Dedupe across static + headless sources (same rule can appear in both).
   const seen = new Set<string>();
-  const faces = allFaces.filter((f) => {
+  const dedupedFaces = allFaces.filter((f) => {
     const sig = `${f.family}|${f.weight}|${f.style}|${f.sources.map((s) => s.url).sort().join(',')}`;
     if (seen.has(sig)) return false;
     seen.add(sig);
     return true;
   });
+
+  // Format filter (--formats=woff2 closes glyphhanger #8). Each face's
+  // sources list is narrowed to the allowed formats; faces with zero
+  // surviving sources are dropped with a warning so the rest of the pipeline
+  // never sees a face it can't emit. No filter applied when `formats` is
+  // unset or empty — that's the v1.2 default.
+  let faces = dedupedFaces;
+  if (formats && formats.length > 0) {
+    const result = filterFacesByFormat(dedupedFaces, formats);
+    faces = result.kept;
+    if (result.dropped.length > 0) {
+      log.warn(
+        `  ! ${result.dropped.length} face(s) dropped — no ${formats.join('/')} source available`,
+      );
+    }
+    log.info(`→ Format filter: keeping ${formats.join(', ')} (${faces.length}/${dedupedFaces.length} faces)`);
+  }
 
   // Also catch <link rel="preload" as="font">
   const preloadRe = /<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*>/gi;
@@ -131,7 +150,12 @@ export async function pull({
       const href = /href=["']([^"']+)["']/i.exec(m[0])?.[1];
       if (href) {
         const u = abs(href, page.url);
-        if (u && FONT_EXT_RE.test(u)) extraUrls.push(u);
+        if (u && FONT_EXT_RE.test(u)) {
+          // Honor the format allowlist for preload URLs too — otherwise --formats=woff2
+          // would still pull woff/ttf preloads that fontfetch then can't reference.
+          if (formats && formats.length > 0 && !urlMatchesFormat(u, formats)) continue;
+          extraUrls.push(u);
+        }
       }
     }
   }

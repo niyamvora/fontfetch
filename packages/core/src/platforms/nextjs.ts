@@ -11,7 +11,7 @@
  * the ones that responded 200. Cheap (26 cancellable requests, ~150ms), and
  * keyed off the letter so we never re-probe one we already have.
  */
-import { UA } from './utils.js';
+import { UA } from '../lib/utils.js';
 
 const NEXT_SUBSET_RE =
   /^(.+\/_next\/static\/media\/[^/?#]+-s\.)([a-z0-9]+)(\.(?:woff2|woff|ttf|otf))(\?[^#]*)?(#.*)?$/i;

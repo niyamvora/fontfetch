@@ -3,7 +3,7 @@ import {
   isNextjsSubsetUrl,
   parseNextjsSubsetUrl,
   nextjsSiblingCandidates,
-} from '../src/nextjs.js';
+} from '../src/platforms/nextjs.js';
 
 describe('isNextjsSubsetUrl', () => {
   it('matches the canonical Next.js next/font subset path', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickGenericFallback, formatFallbackCss } from '../src/fallback.js';
+import { pickGenericFallback, formatFallbackCss } from '../src/inspect/fallback.js';
 
 describe('pickGenericFallback', () => {
   it('routes obvious monospace family names to monospace', () => {

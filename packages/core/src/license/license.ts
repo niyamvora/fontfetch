@@ -1,4 +1,4 @@
-import type { FontFace } from './types.js';
+import type { FontFace } from '../types.js';
 import { OPEN_HOSTS, COMMERCIAL_HOSTS, KNOWN_OPEN_FAMILIES } from './license-data.js';
 
 export type LicenseStatus = 'open' | 'commercial' | 'unknown';

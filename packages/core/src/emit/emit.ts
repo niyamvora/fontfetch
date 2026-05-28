@@ -1,5 +1,5 @@
-import type { FontFace, OrphanFile } from './types.js';
-import type { ClassifiedFace, LicenseSummary } from './license.js';
+import type { FontFace, OrphanFile } from '../types.js';
+import type { ClassifiedFace, LicenseSummary } from '../license/license.js';
 
 export interface BuildFontsCssOptions {
   /** Extra blocks appended after the primary @font-face declarations. v1.2 uses this to splice CLS-killing fallback faces. */

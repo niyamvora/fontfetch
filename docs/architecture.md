@@ -27,8 +27,15 @@ fontfetch/
 │   │   │   ├── license-data.ts   Host + family signature tables
 │   │   │   ├── provenance.ts     Bucket classifier (google / commercial / …)
 │   │   │   ├── headless.ts       Optional Playwright entry (peer dep)
+│   │   │   ├── formats.ts        Font-format allowlist (v1.3 --formats)
+│   │   │   ├── codepoints.ts     Unicode-range parser + Google Fonts buckets (v1.3)
+│   │   │   ├── inspect.ts        fontkit-driven terminal report (v1.2)
+│   │   │   ├── subset.ts         DOM-scraped harfbuzzjs subset + range splitter (v1.2 / v1.3)
+│   │   │   ├── fallback.ts       Capsize-driven CLS-killing fallback @font-face (v1.2)
+│   │   │   ├── crawl.ts          --pages N multi-page link discovery (v1.2.1)
+│   │   │   ├── nextjs.ts         _next/static/media subset sibling probe (v1.2.1)
 │   │   │   ├── utils.ts          fetch, slugs, logging
-│   │   │   ├── types.ts          FontFace / PullOptions / PullResult / …
+│   │   │   ├── types.ts          FontFace / FontFormat / PullOptions / PullResult / …
 │   │   │   └── emitters/         Per-framework emitters (next, tailwind, vite)
 │   │   └── test/                 Vitest suite (mirrors src/)
 │   └── cli/           `fontfetch` — the published npm package
@@ -90,6 +97,22 @@ Playwright stays external and optional.
 
 ## Design choices
 
+**Format filter runs after dedupe, before claim.** The v1.3 `--formats=woff2`
+flag narrows each face's `src:` list right after the static + headless dedupe
+pass and before any filename is claimed, so dropped faces never reach the
+downloader. Preload-link URLs are filtered by extension at the same point so
+the emitted preload header stays consistent with the emitted `fonts.css`.
+
+**`--split-ranges` is a separate flow, not a knob on the existing subset.**
+The default `subset` command takes the page's rendered codepoints and emits
+one `<original>.subset.woff2`. `--split-ranges` skips the DOM scrape
+entirely, opens each binary with `fontkit`, intersects against the
+`GOOGLE_FONTS_RANGES` table in [packages/core/src/codepoints.ts](../packages/core/src/codepoints.ts), and emits one woff2 per bucket plus a chained
+`fonts.subset.css`. The two flows share `subsetFont` (harfbuzzjs) and the
+file-walking helper, but the orchestration is intentionally separate
+because the mental models differ — render-aware subsetting vs.
+ranged lazy-loading.
+
 **Regex parser, not a real CSS AST.** `@font-face` is a constrained subset of
 CSS, and the cost of pulling in postcss for one regex was not worth it.
 
@@ -133,6 +156,16 @@ One-line change.
 
 **Adding a provenance bucket**: extend the `Bucket` union and `RULES` table in
 [packages/core/src/provenance.ts](../packages/core/src/provenance.ts).
+
+**Adding a unicode-range bucket**: extend `GOOGLE_FONTS_RANGES` in
+[packages/core/src/codepoints.ts](../packages/core/src/codepoints.ts). The
+splitter picks up any new bucket automatically and the chained
+`fonts.subset.css` emits a matching `@font-face` per family.
+
+**Adding a font format**: extend the `FontFormat` union in
+[packages/core/src/types.ts](../packages/core/src/types.ts) and the
+`FONT_FORMATS` array + extension regex in
+[packages/core/src/formats.ts](../packages/core/src/formats.ts).
 
 **Consuming core from outside the CLI**: import from `@fontfetch/core`.
 Public API is everything re-exported by

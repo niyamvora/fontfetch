@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bucketForUrl, sameOrigin } from '../src/provenance.js';
+import { bucketForUrl, sameOrigin } from '../src/license/provenance.js';
 
 describe('bucketForUrl', () => {
   it('google: fonts.gstatic.com', () => {

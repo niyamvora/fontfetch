@@ -6,10 +6,15 @@ import {
   inspect,
   formatInspectionReport,
   subset,
+  FONT_FORMATS,
+  isFontFormat,
+  parseUnicodeRange,
+  GOOGLE_FONTS_RANGES,
   type EmitTarget,
+  type FontFormat,
 } from '@fontfetch/core';
 
-const VERSION = '1.2.1';
+const VERSION = '1.3.0';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}
@@ -32,6 +37,12 @@ Flags (default command):
                     merge fonts across all of them. Solves the case where
                     the homepage and /blog use different families. Default
                     1 (entry only). Maximum 50.
+  --formats <list>  Comma-separated allowlist of font formats to keep. One or
+                    more of: ${FONT_FORMATS.join(', ')}. Faces with no
+                    source in the allowlist are dropped. Example:
+                      --formats=woff2        Modern-only output (halves bundle size)
+                      --formats=woff2,woff   Slight legacy reach
+                    Default: keep every format the upstream CSS provides.
   --emit <targets>  Comma-separated framework targets to emit alongside the
                     default fonts.css. One or more of: ${EMIT_TARGETS.join(', ')}
                     Examples:
@@ -50,6 +61,25 @@ Flags (default command):
   -h, --help        Show this help
   -v, --version     Print version
 
+Flags (subset subcommand):
+  --whitelist <list>
+                    Extra codepoints to always include, on top of whatever
+                    the DOM walk produced. Same syntax as a CSS unicode-range:
+                      --whitelist=U+00A0,U+20AC,U+0020-007F
+                    Use for currency, breaking-space variants, locale
+                    punctuation, icon-font glyphs loaded via JS.
+  --split-ranges [=buckets]
+                    Emit one woff2 per Google Fonts language bucket (latin,
+                    latin-ext, cyrillic, cyrillic-ext, greek, greek-ext,
+                    vietnamese) with a chained fonts.subset.css. Closes the
+                    glyphhanger gap: now your output is interchangeable with
+                    Google Fonts' own per-language splits. Skip the DOM scrape
+                    in this mode — split files cover the full font coverage
+                    per range so browsers can lazy-load by language.
+                    Optional value restricts to named buckets, e.g.
+                      --split-ranges=latin,latin-ext,cyrillic
+                    Available buckets: ${GOOGLE_FONTS_RANGES.map((b) => b.name).join(', ')}
+
 Examples:
   fontfetch https://shinobidata.com
   fontfetch https://shinobidata.com ./fonts
@@ -57,8 +87,12 @@ Examples:
   fontfetch https://vercel.com --emit next,tailwind
   fontfetch https://stripe.com --headless --fallback --emit next
   fontfetch https://acme.com --pages=5         (homepage + 4 internal links)
+  fontfetch https://shinobidata.com --formats=woff2
   fontfetch inspect ./fonts/example.com/files/google/Inter-Variable.woff2
   fontfetch subset https://stripe.com
+  fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC
+  fontfetch subset https://stripe.com --split-ranges
+  fontfetch subset https://stripe.com --split-ranges=latin,latin-ext
   npx fontfetch https://shinobidata.com
 
 Output (per site):
@@ -90,7 +124,50 @@ async function runInspect(args: string[]): Promise<void> {
 }
 
 async function runSubset(args: string[]): Promise<void> {
-  const positional = args.filter((a) => !a.startsWith('--'));
+  // --whitelist=U+00A0,U+20AC  or  --whitelist U+00A0,U+20AC
+  let whitelist: number[] | undefined;
+  const whitelistIdx = args.findIndex(
+    (a) => a === '--whitelist' || a.startsWith('--whitelist='),
+  );
+  if (whitelistIdx !== -1) {
+    const raw =
+      args[whitelistIdx] === '--whitelist'
+        ? args[whitelistIdx + 1]
+        : args[whitelistIdx].slice('--whitelist='.length);
+    if (!raw) {
+      log.err('--whitelist requires a value, e.g. --whitelist=U+00A0,U+20AC');
+      process.exit(1);
+    }
+    try {
+      whitelist = parseUnicodeRange(raw);
+    } catch (e) {
+      log.err((e as Error).message);
+      process.exit(1);
+    }
+  }
+
+  // --split-ranges, --split-ranges=<buckets>
+  let splitRanges = false;
+  let splitBuckets: string[] | undefined;
+  const splitIdx = args.findIndex(
+    (a) => a === '--split-ranges' || a.startsWith('--split-ranges='),
+  );
+  if (splitIdx !== -1) {
+    splitRanges = true;
+    if (args[splitIdx].startsWith('--split-ranges=')) {
+      const raw = args[splitIdx].slice('--split-ranges='.length);
+      splitBuckets = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      if (splitBuckets.length === 0) splitBuckets = undefined;
+    }
+  }
+
+  const subsetReserved = new Set(['--whitelist']);
+  const positional = args.filter((a, i) => {
+    if (a.startsWith('--')) return false;
+    if (i > 0 && args[i - 1] === '--whitelist') return false;
+    if (subsetReserved.has(a)) return false;
+    return true;
+  });
   const [url, outDir = './downloaded-fonts'] = positional;
   if (!url) {
     log.err('Missing <url> argument. Usage: fontfetch subset <url> [outDir]');
@@ -103,7 +180,13 @@ async function runSubset(args: string[]): Promise<void> {
     process.exit(1);
   }
   try {
-    const report = await subset({ url, baseDir: outDir });
+    const report = await subset({
+      url,
+      baseDir: outDir,
+      whitelist,
+      splitRanges,
+      splitBuckets,
+    });
     log.info('');
     if (report.filesSubset === 0) {
       log.info('No font files to subset.');
@@ -111,11 +194,14 @@ async function runSubset(args: string[]): Promise<void> {
     }
     const beforeKb = (report.totalOriginalBytes / 1024).toFixed(1);
     const afterKb = (report.totalSubsetBytes / 1024).toFixed(1);
-    log.info(
+    const summary =
       `Done. ${report.filesSubset}/${report.filesAttempted} subsetted, ${beforeKb} KB → ${afterKb} KB ` +
-        `(−${report.totalSavedPct.toFixed(0)}%, saved ${(report.totalSavedBytes / 1024).toFixed(1)} KB) ` +
-        `→ ${report.outDir}/files/`,
-    );
+      `(−${report.totalSavedPct.toFixed(0)}%, saved ${(report.totalSavedBytes / 1024).toFixed(1)} KB) ` +
+      `→ ${report.outDir}/files/`;
+    log.info(summary);
+    if (report.splitCss) {
+      log.info(`        + chained @font-face block emitted at ${report.outDir}/${report.splitCss}`);
+    }
   } catch (e) {
     log.err(`subset failed: ${(e as Error).message}`);
     process.exit(1);
@@ -169,10 +255,50 @@ async function runPull(args: string[]): Promise<void> {
     pages = parsed;
   }
 
-  const reservedFlags = new Set(['--headless', '--emit', '--force', '--fallback', '--pages']);
+  // --formats=woff2,woff   or   --formats woff2
+  let formats: FontFormat[] | undefined;
+  const formatsIdx = args.findIndex(
+    (a: string) => a === '--formats' || a.startsWith('--formats='),
+  );
+  if (formatsIdx !== -1) {
+    const raw =
+      args[formatsIdx] === '--formats'
+        ? args[formatsIdx + 1]
+        : args[formatsIdx].slice('--formats='.length);
+    if (!raw) {
+      log.err(`--formats requires a value. One or more of: ${FONT_FORMATS.join(', ')}`);
+      process.exit(1);
+    }
+    const requested = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    const validated: FontFormat[] = [];
+    for (const r of requested) {
+      const norm = r.toLowerCase();
+      if (!isFontFormat(norm)) {
+        log.err(`Unknown --formats value: '${r}'. Valid: ${FONT_FORMATS.join(', ')}`);
+        process.exit(1);
+      }
+      validated.push(norm);
+    }
+    formats = validated;
+  }
+
+  const reservedFlags = new Set([
+    '--headless',
+    '--emit',
+    '--force',
+    '--fallback',
+    '--pages',
+    '--formats',
+  ]);
   const positional = args.filter((a: string, i: number) => {
     if (a.startsWith('--')) return false;
-    if (i > 0 && (args[i - 1] === '--emit' || args[i - 1] === '--pages')) return false;
+    if (
+      i > 0 &&
+      (args[i - 1] === '--emit' ||
+        args[i - 1] === '--pages' ||
+        args[i - 1] === '--formats')
+    )
+      return false;
     if (reservedFlags.has(a)) return false;
     return true;
   });
@@ -189,7 +315,16 @@ async function runPull(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const result = await pull({ url, baseDir: outDir, headless, emit, force, fallback, pages });
+  const result = await pull({
+    url,
+    baseDir: outDir,
+    headless,
+    emit,
+    force,
+    fallback,
+    pages,
+    formats,
+  });
 
   log.info('');
   if (result.total === 0) {

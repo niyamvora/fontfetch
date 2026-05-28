@@ -4,7 +4,7 @@ import {
   formatAxesInline,
   type InspectionReport,
   type VariationAxis,
-} from '../src/inspect.js';
+} from '../src/inspect/inspect.js';
 
 function baseReport(overrides: Partial<InspectionReport> = {}): InspectionReport {
   return {

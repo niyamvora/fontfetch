@@ -9,7 +9,7 @@
  * /pricing, each uses a different font" case without turning fontfetch into
  * a generic site spider.
  */
-import { abs } from './utils.js';
+import { abs } from '../lib/utils.js';
 
 export const CRAWL_PAGE_CAP = 50;
 

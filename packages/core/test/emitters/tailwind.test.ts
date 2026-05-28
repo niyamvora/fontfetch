@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tailwindEmitter } from '../../src/emitters/tailwind.js';
+import { tailwindEmitter } from '../../src/emit/emitters/tailwind.js';
 import { makeFaces } from './fixtures.js';
 
 describe('tailwindEmitter', () => {

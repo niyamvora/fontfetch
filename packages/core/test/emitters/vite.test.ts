@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { viteEmitter } from '../../src/emitters/vite.js';
+import { viteEmitter } from '../../src/emit/emitters/vite.js';
 import { makeFaces } from './fixtures.js';
 
 describe('viteEmitter', () => {

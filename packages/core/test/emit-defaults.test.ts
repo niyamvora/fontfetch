@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFontsCss, buildPreloadHints } from '../src/emit.js';
+import { buildFontsCss, buildPreloadHints } from '../src/emit/emit.js';
 import type { FontFace } from '../src/types.js';
 
 function face(overrides: Partial<FontFace> & { family: string; localFile: string }): FontFace {

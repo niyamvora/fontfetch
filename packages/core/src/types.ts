@@ -1,4 +1,11 @@
-import type { VariableFontSummary } from './inspect.js';
+import type { VariableFontSummary } from './inspect/inspect.js';
+
+/**
+ * Canonical font formats fontfetch emits. CSS `format(...)` aliases
+ * (`truetype` → `ttf`, `opentype` → `otf`, `embedded-opentype` → `eot`)
+ * are normalised onto this union in `formats.ts`.
+ */
+export type FontFormat = 'woff2' | 'woff' | 'ttf' | 'otf' | 'eot';
 
 export interface FontSource {
   url: string;
@@ -53,6 +60,16 @@ export interface PullOptions {
    * different family from /blog or /pricing.
    */
   pages?: number;
+  /**
+   * Restrict the emitted faces and downloaded files to a subset of formats.
+   * Each face's `src:` list is filtered to keep only entries whose resolved
+   * format is in this allowlist; a face whose every source is filtered out
+   * is dropped (with a warning) rather than emitted broken. Default
+   * (`undefined`) preserves the v1.2 behaviour of keeping every format the
+   * upstream CSS provides. Common value: `['woff2']` for modern-only output
+   * — closes the v1.2 gap surfaced by glyphhanger #8.
+   */
+  formats?: FontFormat[];
 }
 
 /**

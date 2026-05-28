@@ -1,4 +1,4 @@
-import type { FontFace } from '../types.js';
+import type { FontFace } from '../../types.js';
 
 export interface EmitContext {
   /** Hostname-derived slug, e.g. 'shinobidata-com' (used for variable names) */

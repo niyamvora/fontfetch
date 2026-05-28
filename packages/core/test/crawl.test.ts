@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discoverInternalLinks } from '../src/crawl.js';
+import { discoverInternalLinks } from '../src/parse/crawl.js';
 
 const HTML = `
 <!doctype html>

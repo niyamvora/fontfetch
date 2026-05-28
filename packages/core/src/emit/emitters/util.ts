@@ -1,4 +1,4 @@
-import type { FontFace } from '../types.js';
+import type { FontFace } from '../../types.js';
 
 /**
  * Strip non-alphanumeric chars and camelCase the family for use as a JS identifier.
