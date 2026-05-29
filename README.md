@@ -268,15 +268,17 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 
 ## How it compares
 
-| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Per-language split | Modern-only | Zero-CLS fallback |
-|---|---|---|---|---|---|---|---|---|---|
-| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✓ (Google catalog only) | ✓ | ✗ |
-| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | partial (unicode-range computed) | partial | ✗ |
-| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✗ | n/a | ✓ (Nuxt/Vite only) |
-| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ | n/a | ✗ |
-| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite/**tokens** (v1.4) | ✓ | ✓ (Node, no Python) | ✓ Google Fonts buckets (v1.3) | ✓ `--formats=woff2` (v1.3) | ✓ **per-weight, framework-agnostic** (v1.4) |
+| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Per-language split | Modern-only | Zero-CLS fallback | CI release-gate | Cross-page |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✓ (Google catalog only) | ✓ | ✗ | ✗ | ✗ |
+| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | partial (unicode-range computed) | partial | ✗ | ✗ | ✗ |
+| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✗ | n/a | ✓ family-wide (Nuxt/Vite only) | ✗ | ✗ |
+| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ | n/a | ✗ | ✗ | ✗ |
+| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite/**tokens** (v1.4) | ✓ | ✓ (Node, no Python) | ✓ Google Fonts buckets (v1.3) | ✓ `--formats=woff2` (v1.3) | ✓ **per-weight**, framework-agnostic (v1.4) | ✓ `audit` / `budget` / `diff` / `--json` (v1.4) | ✓ `CONSISTENCY.md` via `--pages` (v1.4) |
+
+*"CI release-gate"* means non-zero exit codes on rule violations + `--json` output for downstream tooling. *"Cross-page"* means crawling multiple pages from a single entry URL and surfacing typography drift between them. Both are categories with zero competitors today.
 
 ## Roadmap
 
