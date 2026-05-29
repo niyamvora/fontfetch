@@ -58,6 +58,10 @@ Flags (default command):
                       --emit next,tailwind   Both (pair for CSS variables)
                       --emit vite            Vite integration guide
                       --emit tokens          W3C / Style Dictionary design tokens (v1.4)
+  --gdpr-report     Emit GDPR.md + gdpr.json listing every third-party font
+                    request with self-host remediation. Post-LG München I
+                    20 O 1393/21 (2022) German court ruling on Google Fonts
+                    CDN. (v1.4)
   --fallback        Emit a CLS-killing 'Fallback' @font-face for every family,
                     with size-adjust / ascent-override / descent-override /
                     line-gap-override matched to a system fallback (Arial /
@@ -236,6 +240,7 @@ async function runPull(args: string[]): Promise<void> {
   const headless = args.includes('--headless');
   const force = args.includes('--force');
   const fallback = args.includes('--fallback');
+  const gdprReport = args.includes('--gdpr-report');
 
   // --emit <targets> may be either separated by space or '=' (e.g. --emit=next,tailwind)
   const emit: Exclude<EmitTarget, 'css'>[] = [];
@@ -313,6 +318,7 @@ async function runPull(args: string[]): Promise<void> {
     '--fallback',
     '--pages',
     '--formats',
+    '--gdpr-report',
   ]);
   const positional = args.filter((a: string, i: number) => {
     if (a.startsWith('--')) return false;
@@ -348,6 +354,7 @@ async function runPull(args: string[]): Promise<void> {
     fallback,
     pages,
     formats,
+    gdprReport,
   });
 
   log.info('');

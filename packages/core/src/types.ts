@@ -70,6 +70,13 @@ export interface PullOptions {
    * — closes the v1.2 gap surfaced by glyphhanger #8.
    */
   formats?: FontFormat[];
+  /**
+   * v1.4: emit a `GDPR.md` privacy review file alongside the standard
+   * outputs. Lists every third-party font request with a one-line
+   * self-hosting remediation per family. Driven by the post-LG München I
+   * 20 O 1393/21 (2022) German court ruling on Google Fonts CDN.
+   */
+  gdprReport?: boolean;
 }
 
 /**
@@ -131,6 +138,20 @@ export interface PullResult {
    * subcommands and the provenance.json emitter.
    */
   fileSizes?: Record<string, number>;
+  /**
+   * v1.4: families that ship both a variable font and 2+ static weight
+   * files. Dropping the statics in favour of the variable saves bundle
+   * size with no visual loss. Populated when at least one opportunity
+   * exists; empty array otherwise.
+   */
+  collapseOpportunities?: Array<{
+    family: string;
+    variableFile: string;
+    variableBytes: number;
+    staticBytes: number;
+    savedBytes: number;
+    staticFiles: Array<{ file: string; bytes: number; weight: string; style: string }>;
+  }>;
 }
 
 export interface CssSource {

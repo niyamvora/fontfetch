@@ -62,11 +62,28 @@ Run on demand:
 npx fontfetch <url>
 ```
 
-Or install globally:
+Install globally:
 
 ```bash
 npm install -g fontfetch
 fontfetch <url>
+```
+
+Or pick the distribution channel that fits your workflow (v1.4):
+
+```bash
+# Homebrew tap (once published — see extensions/homebrew/)
+brew install niyamvora/fontfetch/fontfetch
+
+# GitHub Action (PR comments on font drift, CI release-gate)
+# uses: niyamvora/fontfetch-action@v1
+# See extensions/github-action/README.md
+
+# Raycast extension (Cmd-Space → Extract Fonts from URL)
+# See extensions/raycast/README.md
+
+# Programmatic access to the pairings registry
+npm install @fontfetch/registry
 ```
 
 Requires Node 18+.
@@ -89,7 +106,8 @@ fontfetch budget <url> --max-kb N [outDir] [--json]                         # v1
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 | `--pages <N>` | `1` | Crawl up to N pages (entry + N-1 same-origin internal links) and merge fonts across all of them (v1.2.1). Max 50 |
 | `--formats <list>` | — | Comma-separated allowlist of font formats to keep: `woff2`, `woff`, `ttf`, `otf`, `eot`. Faces with no matching source are dropped (v1.3). Default: keep every format the upstream CSS provides |
-| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2). v1.3.1: monospace detection now reads the binary's `post.isFixedPitch` flag, not just the family name |
+| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2). v1.3.1: monospace detection now reads the binary's `post.isFixedPitch` flag, not just the family name. v1.4: emits one block per (family, weight, style) tuple |
+| `--gdpr-report` | off | Emit `GDPR.md` + `gdpr.json` listing every third-party font request with self-host remediation (v1.4) |
 | `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `tokens` (v1.4), `css` (default) |
 | `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
 | `--whitelist <spec>` (subset) | — | Extra codepoints to always include, on top of the DOM walk. CSS `unicode-range` syntax: `U+00A0,U+20AC,U+0020-007F` (v1.3) |
@@ -113,7 +131,25 @@ fontfetch subset https://stripe.com --split-ranges
 
 ### What's new in v1.4
 
-Four release-gate-grade additions that close out the v1.4 "distribution surface" plan plus four high-value rows from the [2026-05-28 competitor-gaps research](./docs/research-competitor-feature-gaps-2026-05-28.md). After v1.4 fontfetch is a CI tool, not just a dev convenience:
+**Eight features in one minor.** Four close out the engine work (competitor-gap closeouts from the [2026-05-28 research](./docs/research-competitor-feature-gaps-2026-05-28.md)) and four ship as distribution channels so fontfetch shows up where users already work.
+
+#### Distribution channels
+
+- **`@fontfetch/registry`** — new typed npm package. Consumes the community pairings registry with full autocomplete:
+  ```bash
+  npm install @fontfetch/registry
+  ```
+  ```ts
+  import { findByFamily, freeAlternativesFor } from '@fontfetch/registry';
+  freeAlternativesFor('Söhne');  // ['Inter', 'Manrope', 'Outfit']
+  ```
+- **`fontfetch-action` GitHub Action** ([`extensions/github-action/`](./extensions/github-action)). PR comments on font drift; non-zero exit when budgets bust or commercial faces sneak in.
+- **Raycast extension** ([`extensions/raycast/`](./extensions/raycast)). Three commands: extract fonts from a URL (CSS to clipboard), audit a URL (HUD verdict), search the pairings registry.
+- **Homebrew Formula** ([`extensions/homebrew/`](./extensions/homebrew)). Source-of-truth tap Formula ready to publish to `homebrew-fontfetch` when warranted.
+- **`--gdpr-report` flag.** Emits `GDPR.md` + `gdpr.json` listing every third-party font request with self-host remediation. Post-LG München I 20 O 1393/21 (2022) German court ruling on Google Fonts CDN.
+- **Variable-font collapse hint.** When a family ships both a variable binary and ≥ 2 static weight files, fontfetch surfaces a one-liner with the byte saving.
+
+#### Engine — release-gate capabilities
 
 - **`fontfetch diff <urlA> <urlB>` — staging-vs-prod font drift.** Runs `pull()` on both URLs, prints added / removed / shared families with byte and commercial delta. `--json` for CI:
   ```bash
@@ -294,7 +330,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v1.2.1** — [Discovery + empty-state quick wins](./docs/roadmap.md#v121--discovery--empty-state-quick-wins--shipped): variable-font hint after pull, Next.js subset sibling probe, `--pages <N>` multi-page crawl, focused 0-declaration output.
 - [x] **v1.3** — [Modern emit + whitelist + per-language split](./docs/roadmap.md#v13--shipped-2026-05-28): `--formats=woff2` modern-only emit, `subset --whitelist=U+00A0,…` extra codepoints, `subset --split-ranges` Google-Fonts-style per-language woff2 + chained `fonts.subset.css` with `unicode-range:` declarations.
 - [x] **v1.3.1** — [Signal quality](./docs/roadmap.md#v131--signal-quality--shipped-2026-05-29): `--fallback` reads `post.isFixedPitch` (catches Operator / PragmataPro / Berkeley Mono); license classifier cross-references the binary's `name` table (ids 13 + 14); `LICENSE_REVIEW.md` calls out OFL Reserved Font Name families.
-- [x] **v1.4** — [CI release-gate + competitor-gap closeouts](./docs/roadmap.md#v14--distribution-surface--competitor-gap-closeouts-planned): `fontfetch diff` (staging-vs-prod font drift), `fontfetch audit` / `fontfetch budget` (CI-friendly non-zero exits with `--max-kb`, `--per-family-kb`, `--no-commercial`, `--json`), `--emit tokens` (W3C / DTCG design tokens), per-weight Capsize fallback (beats fontaine #53), cross-page `CONSISTENCY.md`, machine-readable `provenance.json`.
+- [x] **v1.4** — [CI release-gate + distribution channels](./docs/roadmap.md#v14--distribution-surface--competitor-gap-closeouts-v140--shipped-2026-05-29--distribution-channels-shipped-2026-05-29-in-v14x-rolled-in): engine = `fontfetch diff` / `audit` / `budget` + `--emit tokens` + `--gdpr-report` + per-weight Capsize fallback + cross-page `CONSISTENCY.md` + machine-readable `provenance.json` + variable-font collapse hint. Channels = [`@fontfetch/registry`](./packages/registry) typed npm package + [`fontfetch-action`](./extensions/github-action) GitHub Action + [Raycast extension](./extensions/raycast) + [Homebrew tap](./extensions/homebrew).
 - [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.

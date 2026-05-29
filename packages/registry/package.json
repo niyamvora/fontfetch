@@ -1,0 +1,48 @@
+{
+  "name": "@fontfetch/registry",
+  "version": "1.4.0",
+  "description": "Typed access to the fontfetch community font-pairings registry — for font pickers, design plugins, VS Code extensions, and any tool that wants to consume the open-source pairings + free-alternative recommendations with full TypeScript autocomplete.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./pairings.json": "./dist/pairings.json"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "node scripts/bake-pairings.mjs && tsup",
+    "dev": "tsup --watch",
+    "typecheck": "node scripts/bake-pairings.mjs && tsc --noEmit",
+    "test": "node scripts/bake-pairings.mjs && vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist .tsbuildinfo src/pairings.generated.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "font",
+    "fonts",
+    "font-pairing",
+    "typography",
+    "registry",
+    "open-source-fonts",
+    "ofl",
+    "design-system"
+  ],
+  "author": "Niyam Vora <niyamvora@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niyamvora/fontfetch.git",
+    "directory": "packages/registry"
+  },
+  "bugs": {
+    "url": "https://github.com/niyamvora/fontfetch/issues"
+  },
+  "homepage": "https://github.com/niyamvora/fontfetch/tree/main/pairings#readme"
+}

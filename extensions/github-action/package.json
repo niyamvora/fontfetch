@@ -1,0 +1,17 @@
+{
+  "name": "fontfetch-action",
+  "version": "1.4.0",
+  "description": "GitHub Action that audits a URL's @font-face declarations on every PR — bundle size, commercial-font alerts, OFL alternatives.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs --target node20 --out-dir dist --noExternal=@actions/core,@actions/github"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.0",
+    "@actions/github": "^6.0.0"
+  },
+  "peerDependencies": {
+    "fontfetch": "workspace:*"
+  }
+}

@@ -8,9 +8,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [1.4.0] — 2026-05-29
 
-The "distribution surface + competitor-gap closeouts" release. Four engine-level additions that ship together and make fontfetch a release-gate tool, not just a dev convenience. Tag line: *"fontfetch 1.4: extract → audit → ship. With every page, every weight, and every font signal you didn't know you needed."*
+The "distribution surface + competitor-gap closeouts" release. **Eight features ship in one minor — the four engine closeouts plus the four distribution channels.** Tag line: *"fontfetch 1.4: extract → audit → ship. With every page, every weight, every font signal you didn't know you needed — and now everywhere you already work."*
 
-After v1.4 the CLI covers four new release-gate surfaces (`diff`, `audit`, `budget`, `--emit tokens`), surfaces cross-page font drift with `CONSISTENCY.md`, emits per-weight Capsize fallbacks (closing the fontaine #53 gap that's been open 3+ years), and ships a stable machine-readable `provenance.json` for downstream tooling.
+After v1.4 the CLI covers four new release-gate surfaces (`diff`, `audit`, `budget`, `--emit tokens`, `--gdpr-report`), surfaces cross-page font drift with `CONSISTENCY.md`, emits per-weight Capsize fallbacks (closing the fontaine #53 gap that's been open 3+ years), variable-font collapse hints, machine-readable `provenance.json`, and ships a typed `@fontfetch/registry` npm package + GitHub Action + Raycast extension + Homebrew tap.
+
+### Added — distribution channels (v1.4.x folded in)
+
+- **`@fontfetch/registry`** — new typed npm package providing autocomplete-grade access to the community pairings registry. `allPairings()`, `findByFamily()`, `freeAlternativesFor()`, `findByTag()`, `allTags()`, `allFamilies()`. Pairings baked from `pairings/*.json` at build time. Consumed by the Raycast extension and any downstream tooling (font pickers, design plugins, VS Code extensions, Figma plugins).
+- **`fontfetch-action` GitHub Action** at [`extensions/github-action/`](./extensions/github-action). Wraps `fontfetch audit <url> --json`, posts a PR comment with the verdict + per-family budgets, exits non-zero on failure. Inputs: `url`, `max-kb`, `per-family-kb`, `no-commercial`, `comment`, `fontfetch-version`. Outputs: `passed`, `total-kb`, `families`, `report-json`.
+- **Homebrew Formula** at [`extensions/homebrew/fontfetch.rb`](./extensions/homebrew/fontfetch.rb). Source-of-truth Formula ready to copy into a `homebrew-fontfetch` tap repo when ~500+ stars warrant the maintenance.
+- **Raycast extension** at [`extensions/raycast/`](./extensions/raycast). Three commands: *Extract Fonts from URL* (CSS to clipboard), *Audit URL* (HUD verdict), *Search Font Pairings* (registry-backed search).
+- **`--gdpr-report` flag** on the default pull command. Emits `GDPR.md` + `gdpr.json` listing every third-party font request with self-host remediation per family. Driven by the post-LG München I 20 O 1393/21 (2022) German court ruling on Google Fonts CDN. New public exports: `buildGdprReport`, `formatGdprMarkdown`, `GdprReport`, `GdprFinding`.
+- **Variable-font collapse hint.** After the variable-font surfacing line, fontfetch now scans for families that ship both a variable binary AND ≥ 2 static weight files. Emits a one-liner per family with the byte saving. New public exports: `detectCollapseOpportunities`, `formatCollapseHint`, `CollapseOpportunity`. `PullResult.collapseOpportunities` carries the structured findings for non-CLI consumers.
+
+### Added — engine work
 
 ### Added
 
@@ -59,7 +70,8 @@ After v1.4 the CLI covers four new release-gate surfaces (`diff`, `audit`, `budg
 - Bundle size unchanged at ~2.2 MB.
 - The new public exports follow the same stability guarantee as the rest of `@fontfetch/core`: additive changes only within a minor; shape changes require a major bump.
 - `audit` runs the full `pull()` under the hood — no second-pass dry-run mode. For CI flows that need only the audit verdict and not the bundle, use `--json` and discard `outDir` after parsing the report.
-- Test surface grew from 144 → 183 vitest cases (new: `provenance-json` with 8 cases, `tokens` emitter with 7 cases, `consistency` with 10 cases, `diff` with 3 cases, `audit` with 8 cases, plus 3 new `formatFallbackCss` per-weight cases).
+- Test surface grew from 144 → 207 vitest cases (engine: provenance-json 8, tokens emitter 7, consistency 10, diff 3, audit 8, fallback per-weight 3; channels: gdpr 9, collapse 7, registry 8). All green.
+- The `extensions/` directory (GitHub Action, Raycast, Homebrew) is intentionally outside the pnpm workspace — each channel ships independently with its own toolchain.
 
 ## [1.3.1] — 2026-05-29
 

@@ -543,23 +543,23 @@ The OFL Reserved Font Name clause is the most-misunderstood OSS-font compliance 
 - New types: `LicenseClassification.hasRFN?` (optional), `InspectionReport.isFixedPitch` (required).
 - Test surface grew from 132 → 144 vitest cases (new: `binary-license` with 6 cases, plus the new `fallback` hint + `buildLicenseReview` RFN coverage).
 
-## v1.4 — distribution surface + competitor-gap closeouts (v1.4.0 ✓ shipped 2026-05-29 · distribution channels planned for v1.4.x)
+## v1.4 — distribution surface + competitor-gap closeouts (v1.4.0 ✓ shipped 2026-05-29 · distribution channels ✓ shipped 2026-05-29 in v1.4.x rolled in)
 
 Once v1.3 lands, the next gain is showing up where users already are *and* closing the highest-value gaps the [2026-05-28 competitor-feature-gaps research](./research-competitor-feature-gaps-2026-05-28.md#table-1--feature-gaps-in-the-entire-landscape) flagged as still untouched. Each item below either uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems, or fills a Table 1 row that no competitor ships today.
 
-**v1.4.0 ships the engine work** — `diff`, `audit`, `budget` CLI subcommands; `--emit tokens`; cross-page `CONSISTENCY.md`; per-weight Capsize fallback; machine-readable `provenance.json`. **v1.4.x will follow** with the distribution channels (GH Action, Raycast, brew, GDPR mode, var-collapse hint, registry npm) — each ships independently and their pace is set by usage feedback on v1.4.0.
+**v1.4.0 bundles all eight items** — the engine work (four competitor-gap closeouts) plus the distribution channels (registry npm, GitHub Action, Raycast, Homebrew, `--gdpr-report`, variable-font collapse hint). Shipped as a single PR because nothing was on npm yet, the bundle keeps the launch narrative compact ("v1.4 makes fontfetch a release-gate tool AND meets you where you work"), and the distribution channels each have independent publish lifecycles after this PR lands.
 
 ### Distribution surfaces
 
-- **`fontfetch-action` GitHub Action.** PR comments on font drift: *"`apps/web/app/page.tsx` references a new `@font-face` — fetched it, classified `Söhne` as commercial, +180 KB. Consider one of these OFL alternatives from the pairings registry."* Distribution flywheel; every adopting repo is a starred-adjacent signal.
-- **`fontfetch diff <url1> <url2>`.** Detect font drift between two URLs (the staging-vs-prod use case, the rebrand-detect use case, the competitor-watch use case). The "Stripe rebrand: dropped Söhne, added Inter Display" tweet writes itself. Closes Table 1 row 10.
-- **`fontfetch audit <url> --max-kb 100 --no-commercial`.** Drop-in CI command; non-zero exit if the homepage adds a commercial font or busts a budget. Pairs with the GH Action. Closes Table 1 rows 2 + 5.
-- **`fontfetch budget` for CI.** Per-family size budgets with `--json` for downstream tools (Lighthouse-CI lookalike, size-limit style).
-- **Raycast extension.** *"fontfetch &lt;url&gt; → CSS to clipboard."* Designer-dev crossover audience; Raycast extensions show up in product roundups.
-- **Homebrew tap.** `brew install fontfetch`. Once we cross ~500 stars, distribution maintenance pays off.
-- **GDPR mode (`--gdpr-report`)**. Scan a URL, list every third-party font request (Google Fonts CDN, Adobe Fonts, Hatch, MyFonts CDN), output a `GDPR.md` checklist with one-line remediation per family. Direct ride-along on the German court ruling SEO wave.
-- **Variable-font collapse hint.** When the extractor finds 9 static weight files plus a `.var.woff2` from the same family on the same CDN, recommend the variable file with a 1-line diff of the bundle size you'd save.
-- **`@fontfetch/registry` typed package.** Publish a thin npm wrapper around `pairings/*.json` so third-party tooling (font pickers, design plugins) can consume the registry with autocomplete and types. Turns the registry into a real ecosystem primitive.
+- ✓ **`fontfetch-action` GitHub Action** at [`extensions/github-action/`](../extensions/github-action). PR comments on font drift, non-zero exit on budget bust or commercial-font sneakage. Wraps `fontfetch audit --json` so future CLI versions compose forward without touching the action.
+- ✓ **`fontfetch diff <url1> <url2>`** ships in v1.4.0. Detects font drift between two URLs. Closes Table 1 row 10.
+- ✓ **`fontfetch audit <url> --max-kb N --no-commercial`** ships in v1.4.0. Closes Table 1 rows 2 + 5.
+- ✓ **`fontfetch budget`** ships in v1.4.0 (wraps `audit` for the size dimension).
+- ✓ **Raycast extension** at [`extensions/raycast/`](../extensions/raycast). Three commands: *Extract Fonts from URL* (CSS to clipboard), *Audit URL* (HUD verdict), *Search Font Pairings* (registry-backed).
+- ✓ **Homebrew Formula** at [`extensions/homebrew/`](../extensions/homebrew). Source-of-truth tap Formula; copy to `niyamvora/homebrew-fontfetch` repo to publish.
+- ✓ **`--gdpr-report`** ships in v1.4.0. Emits `GDPR.md` + `gdpr.json` with per-family self-host remediation. Post-LG München I 20 O 1393/21 (2022).
+- ✓ **Variable-font collapse hint** ships in v1.4.0. Detects families that ship both a variable binary and ≥ 2 static weights; surfaces the byte saving.
+- ✓ **`@fontfetch/registry`** at [`packages/registry/`](../packages/registry). Typed npm package backed by a build-time bake of `pairings/*.json`. Consumed by the Raycast extension and any downstream tooling.
 
 ### Competitor-gap closeouts ✓ shipped 2026-05-29 in v1.4.0 (from Table 1 audit)
 

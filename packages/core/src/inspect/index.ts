@@ -4,3 +4,4 @@
  */
 export * from './inspect.js';
 export * from './fallback.js';
+export * from './collapse.js';

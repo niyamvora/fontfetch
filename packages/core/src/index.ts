@@ -117,6 +117,9 @@ export {
 } from './inspect/index.js';
 export type { FallbackMetrics, FallbackGenericFamily } from './inspect/index.js';
 
+export { detectCollapseOpportunities, formatCollapseHint } from './inspect/index.js';
+export type { CollapseOpportunity } from './inspect/index.js';
+
 export { subset } from './pipeline/index.js';
 export type {
   SubsetReport,
@@ -133,6 +136,9 @@ export type { AuditReport, AuditOptions, AuditViolation } from './pipeline/index
 
 export { buildProvenanceJson } from './emit/index.js';
 export type { ProvenanceReport, ProvenanceFaceEntry, ProvenanceFileEntry } from './emit/index.js';
+
+export { buildGdprReport, formatGdprMarkdown } from './emit/index.js';
+export type { GdprReport, GdprFinding } from './emit/index.js';
 
 export {
   computeConsistency,

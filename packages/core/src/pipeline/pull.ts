@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from '../parse/parse.js';
 import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints, buildProvenanceJson } from '../emit/emit.js';
+import { buildGdprReport, formatGdprMarkdown } from '../emit/gdpr.js';
 import { classifyFaces, summarize } from '../license/license.js';
 import { crossRefLicenseFromBinaries } from '../license/binary-license.js';
 import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from '../lib/utils.js';
@@ -16,6 +17,7 @@ import { discoverInternalLinks, CRAWL_PAGE_CAP } from '../parse/crawl.js';
 import { buildPageFaceMap, computeConsistency, buildConsistencyReport } from '../parse/consistency.js';
 import { isNextjsSubsetUrl, probeNextjsSiblings } from '../platforms/nextjs.js';
 import { summarizeVariableFonts, formatAxesInline } from '../inspect/inspect.js';
+import { detectCollapseOpportunities, formatCollapseHint } from '../inspect/collapse.js';
 import { filterFacesByFormat, urlMatchesFormat } from '../formats/formats.js';
 
 interface FetchedPage {
@@ -33,6 +35,7 @@ export async function pull({
   fallback = false,
   pages = 1,
   formats,
+  gdprReport = false,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
@@ -392,6 +395,15 @@ export async function pull({
     onProgress?.({ type: 'variable_fonts', fonts: variableFonts });
   }
 
+  // v1.4: variable-font collapse hint. When a family ships both a variable
+  // binary and 2+ static weight files, the statics are redundant — the
+  // variable already covers them. Surface a one-liner with the byte saving.
+  const collapseOpportunities = detectCollapseOpportunities(variableFonts, faces, fileSizes);
+  if (collapseOpportunities.length > 0) {
+    log.info('  ℹ Variable-font collapse opportunities:');
+    for (const op of collapseOpportunities) log.info(formatCollapseHint(op));
+  }
+
   let fallbackBlocks: string[] = [];
   if (fallback) {
     log.info('→ Computing CLS-killing fallback metrics (capsize, per weight)');
@@ -423,6 +435,27 @@ export async function pull({
     path.join(outDir, 'provenance.json'),
     buildProvenanceJson(host, url, refined, orphans, fileSizes),
   );
+  // v1.4: optional GDPR review (--gdpr-report). Surfaces every third-party
+  // font request with self-host remediation. Post-LG München I 20 O 1393/21.
+  if (gdprReport) {
+    const report = buildGdprReport(host, url, faces);
+    await fs.writeFile(path.join(outDir, 'GDPR.md'), formatGdprMarkdown(report));
+    await fs.writeFile(
+      path.join(outDir, 'gdpr.json'),
+      JSON.stringify(report, null, 2),
+    );
+    if (report.summary.highSeverity > 0) {
+      log.info(
+        `→ GDPR review: ${report.summary.thirdParty} third-party request(s), ${report.summary.highSeverity} high-severity — see GDPR.md`,
+      );
+    } else if (report.summary.thirdParty > 0) {
+      log.info(
+        `→ GDPR review: ${report.summary.thirdParty} third-party request(s) — see GDPR.md`,
+      );
+    } else {
+      log.info('→ GDPR review: no third-party font requests detected');
+    }
+  }
   // v1.4: cross-page consistency report. Only meaningful when --pages > 1;
   // for a single-page pull every face is on the entry page by definition.
   let consistencyReport: ReturnType<typeof computeConsistency> | undefined;
@@ -467,5 +500,6 @@ export async function pull({
     discoveredNextjsSiblings,
     ...(consistencyReport ? { consistency: consistencyReport } : {}),
     fileSizes: Object.fromEntries(fileSizes),
+    collapseOpportunities,
   };
 }
