@@ -6,3 +6,4 @@
 export * from './license.js';
 export * from './license-data.js';
 export * from './provenance.js';
+export * from './binary-license.js';

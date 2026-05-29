@@ -22,6 +22,23 @@ describe('pickGenericFallback', () => {
     expect(pickGenericFallback('Söhne')).toBe('sans-serif');
     expect(pickGenericFallback('Anonymous Sans')).toBe('sans-serif');
   });
+
+  it('promotes to monospace when the isFixedPitch hint is true, even with a non-monospace name', () => {
+    // Real-world cases: Operator, PragmataPro, Comic Code, Berkeley Mono — names that don't always carry "mono".
+    expect(pickGenericFallback('Operator', { isFixedPitch: true })).toBe('monospace');
+    expect(pickGenericFallback('PragmataPro', { isFixedPitch: true })).toBe('monospace');
+    expect(pickGenericFallback('Söhne', { isFixedPitch: true })).toBe('monospace');
+  });
+
+  it('ignores the hint when isFixedPitch is false', () => {
+    expect(pickGenericFallback('Inter', { isFixedPitch: false })).toBe('sans-serif');
+    expect(pickGenericFallback('JetBrains Mono', { isFixedPitch: false })).toBe('monospace');
+  });
+
+  it('falls back to the name regex when no hint is supplied', () => {
+    expect(pickGenericFallback('Inter', {})).toBe('sans-serif');
+    expect(pickGenericFallback('Fira Code', {})).toBe('monospace');
+  });
 });
 
 describe('formatFallbackCss', () => {

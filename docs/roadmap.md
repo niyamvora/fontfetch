@@ -377,7 +377,7 @@ Individually each is a single tweet. Together they're a complete narrative: *"Yo
 - Also folded in from v1.1: `font-display: swap` default on emitted faces and a `<link rel=preload>` hint header at the top of `fonts.css`.
 - Test surface grew from 54 → 76 vitest cases (new: `inspect`, `fallback`, `emit-defaults`). All green.
 
-The remaining v1.1 items (extra `--emit` targets, `fontfetch lookup` / `suggest`, full RFN-aware classifier upgrade, name-table license cross-ref) will land in **v1.2.x** point releases as they don't justify their own minor bump.
+The remaining v1.1 items split across two point releases: **v1.3.1** ships the name-table license cross-ref and the OFL Reserved Font Name surface. Extra `--emit` targets (`astro`, `svelte`, `nuxt`, `remix`, `qwik`, `bunny`) and `fontfetch lookup` / `suggest` are still queued for a later point release — each new emitter is its own module and each new subcommand carries its own CLI surface, so they don't fold cleanly into a patch release.
 
 ## v1.2.1 — discovery + empty-state quick wins ✓ shipped
 
@@ -431,7 +431,7 @@ When `pull()` returns 0 declarations the CLI now prints a structured help frame 
 
 - 76 → 101 vitest cases (added `crawl`, `nextjs`, and inline axis formatter coverage). All green.
 - The static-mode summary line still reads `→ Found N @font-face declaration(s), M unique file(s)` — the CSS-fetch loop was restructured to keep the count line above the per-stylesheet fetches even when crawling multiple pages.
-- The monospace family-name heuristic in `--fallback` is unchanged. Promoted to v1.2.2 once we add `font.post.isFixedPitch` reading (capsize doesn't expose the flag through `fromBuffer`, so it needs its own `fontkit` round-trip).
+- The monospace family-name heuristic in `--fallback` is unchanged. ✓ shipped in v1.3.1 — `--fallback` now reads `font.post.isFixedPitch` via a separate `fontkit` round-trip and forces `Courier New` regardless of the family-name pattern.
 - No new runtime dependencies. Bundle size unchanged at ~2.2 MB.
 
 ## v1.3 — shipped (2026-05-28)
@@ -491,8 +491,57 @@ Closes the long-standing positioning gap fontfetch had against [google-webfonts-
 - New module: [packages/core/src/codepoints.ts](../packages/core/src/codepoints.ts) — `parseUnicodeRange()`, `formatUnicodeRange()`, and the canonical `GOOGLE_FONTS_RANGES` table captured verbatim from Google's `css2` endpoint. All re-exported from `@fontfetch/core`.
 - New module: [packages/core/src/formats.ts](../packages/core/src/formats.ts) — format resolution + face-list filtering. Also re-exported.
 - New types: `FontFormat`, `UnicodeRangeBucket`, `SplitFamilyReport`.
-- Test surface grew from 101 → 130 vitest cases (new: `formats`, `codepoints`).
+- Test surface grew from 101 → 132 vitest cases (new: `formats` with 15 cases, `codepoints` with 16 cases).
 - The chained `fonts.subset.css` defaults to `font-weight: 400; font-style: normal` per face when only the binary is known (skipPull / orphan files). When `pullResult.faces` is populated (the typical case) the original weight/style is recovered automatically.
+
+## v1.3.1 — signal quality ✓ shipped (2026-05-29)
+
+The "v1.2.x carryover" point release. Two binary-driven refinements that move signal upstream of the existing classifiers — both are pure quality wins on shipped features, neither adds a CLI surface, and the tag line is honest:  *"the same `--fallback` and `LICENSE_REVIEW.md` you had yesterday, but they now read the binary instead of guessing from the family name."*
+
+### `--fallback` reads `post.isFixedPitch`
+
+The v1.2 monospace heuristic in `pickGenericFallback()` was name-regex only — `Operator`, `PragmataPro`, `Comic Code`, `Berkeley Mono` all slipped past it because their family names don't contain `mono` / `code` / `console` / `typewriter`. v1.3.1 cross-checks the OpenType `post` table via `fontkit.create()` before falling back to the regex: when `font.post.isFixedPitch === true`, monospace wins regardless of name. Capsize doesn't expose this flag through `fromBuffer`, so the new path costs one extra `fontkit.create()` per family during `--fallback` computation. `fontkit` was already a runtime dep (used by `inspect` and the variable-font summariser), so the bundle size is unchanged.
+
+The public signature gains an optional hint:
+
+```ts
+pickGenericFallback(familyName: string, hint?: { isFixedPitch?: boolean }): FallbackGenericFamily
+```
+
+The single-arg form is preserved for direct callers.
+
+### Name-table license cross-ref (ids 13 + 14)
+
+The v0.4 classifier was URL-signature first, family-name catalog second. The binary's own self-declared license (OpenType `name` table id 13 = description, id 14 = URL) was being read by `inspect` but never consumed by the classifier. v1.3.1 closes the gap with a new pass — `crossRefLicenseFromBinaries(classified, filesDir)` — that runs after the download phase, before `LICENSE_REVIEW.md` ships to disk.
+
+Promotion rules are conservative on purpose:
+
+- `unknown` + binary self-declares OFL → flip to `open`
+- `commercial` (URL signature) → never demoted, never flipped (URL signature still wins)
+- `open` (URL signature or catalog) → preserved
+- RFN flag attached on every face whose binary declares the OFL Reserved Font Name clause, regardless of origin classification
+
+The cross-ref pass is non-fatal. Missing files, parse failures, and absent OpenType tables all degrade gracefully back to the URL-signature classification.
+
+### RFN callout in `LICENSE_REVIEW.md`
+
+The OFL Reserved Font Name clause is the most-misunderstood OSS-font compliance bug. A binary that ships with RFN forbids redistribution under the same family name — the redistributor must rename. v1.3.1 surfaces this per family in the "open / self-hostable" section of `LICENSE_REVIEW.md` whenever the cross-ref pass flags `hasRFN`:
+
+```
+### Inter
+- Served from Google Fonts
+- ⚠ OFL Reserved Font Name — do not redistribute modified copies under the name "Inter". Rename the family before any redistribution that changes the binary.
+- Files:
+  - `files/google/Inter-Variable.woff2 (400/normal)`
+```
+
+### v1.3.1 shipping notes
+
+- No new runtime dependencies. The cross-ref pass reuses the existing `inspect()` helper.
+- Bundle size unchanged at ~2.2 MB.
+- New module: [packages/core/src/license/binary-license.ts](../packages/core/src/license/binary-license.ts) — `crossRefLicenseFromBinaries`. Re-exported from `@fontfetch/core`.
+- New types: `LicenseClassification.hasRFN?` (optional), `InspectionReport.isFixedPitch` (required).
+- Test surface grew from 132 → 144 vitest cases (new: `binary-license` with 6 cases, plus the new `fallback` hint + `buildLicenseReview` RFN coverage).
 
 ## v1.4 — distribution surface (planned)
 

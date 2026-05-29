@@ -28,6 +28,7 @@ function baseReport(overrides: Partial<InspectionReport> = {}): InspectionReport
     ],
     features: ['calt', 'liga', 'dlig', 'ss01', 'ss02', 'cv11', 'tnum'],
     scripts: [],
+    isFixedPitch: false,
     license: {
       description: 'This Font Software is licensed under the SIL Open Font License, Version 1.1.',
       url: 'https://openfontlicense.org',

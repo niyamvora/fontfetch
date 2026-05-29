@@ -3,6 +3,7 @@ import path from 'node:path';
 import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from '../parse/parse.js';
 import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints } from '../emit/emit.js';
 import { classifyFaces, summarize } from '../license/license.js';
+import { crossRefLicenseFromBinaries } from '../license/binary-license.js';
 import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from '../lib/utils.js';
 import type { CssSource, OrphanFile, PullOptions, PullResult } from '../types.js';
 import { FONT_EXT_RE } from '../lib/utils.js';
@@ -334,6 +335,21 @@ export async function pull({
     }
   }
 
+  // v1.3.1: cross-reference each classified face against its downloaded
+  // binary's OpenType `name` table. URL-signature commercials are never
+  // demoted; `unknown` faces whose binary self-declares OFL get promoted to
+  // `open`; RFN flags get surfaced in LICENSE_REVIEW.md regardless of
+  // origin classification.
+  const refined = await crossRefLicenseFromBinaries(classified, filesDir);
+  const refinedSummary = summarize(refined);
+  const refinedRfnCount = refined.filter((c) => c.classification.hasRFN).length;
+  if (refinedSummary.open !== licenseSummary.open || refinedRfnCount > 0) {
+    log.info(
+      `→ License review (binary cross-ref): ${refinedSummary.open} open / ${refinedSummary.commercial} commercial / ${refinedSummary.unknown} unknown` +
+        (refinedRfnCount > 0 ? ` (${refinedRfnCount} OFL family with RFN clause)` : ''),
+    );
+  }
+
   // Variable-font surfacing. Inspect each downloaded binary for variation
   // axes; if any are present, surface a one-liner so the user knows their
   // single file is actually the whole family. Non-fatal.
@@ -378,7 +394,7 @@ export async function pull({
   await fs.writeFile(path.join(outDir, 'README.md'), buildReadme(host, faces, downloaded, orphans));
   await fs.writeFile(
     path.join(outDir, 'LICENSE_REVIEW.md'),
-    buildLicenseReview(host, classified, licenseSummary),
+    buildLicenseReview(host, refined, refinedSummary),
   );
 
   for (const target of emit) {

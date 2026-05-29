@@ -64,6 +64,8 @@ export type {
 export { bucketForUrl, sameOrigin, BUCKETS } from './license/index.js';
 export type { Bucket } from './license/index.js';
 
+export { crossRefLicenseFromBinaries } from './license/index.js';
+
 export {
   buildFontsCss,
   buildFontsJson,

@@ -6,6 +6,8 @@ export type LicenseStatus = 'open' | 'commercial' | 'unknown';
 export interface LicenseClassification {
   status: LicenseStatus;
   reason: string;
+  /** v1.3.1: set by `crossRefLicenseFromBinaries` when the font's OpenType `name` table carries the OFL Reserved Font Name clause. Triggers an RFN callout in `LICENSE_REVIEW.md`. */
+  hasRFN?: boolean;
 }
 
 const NORMALIZED_OPEN_FAMILIES = new Set(KNOWN_OPEN_FAMILIES.map((f) => f.trim().toLowerCase()));

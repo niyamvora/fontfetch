@@ -86,7 +86,7 @@ fontfetch subset <url> [outDir] [--whitelist <spec>] [--split-ranges[=<buckets>]
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 | `--pages <N>` | `1` | Crawl up to N pages (entry + N-1 same-origin internal links) and merge fonts across all of them (v1.2.1). Max 50 |
 | `--formats <list>` | — | Comma-separated allowlist of font formats to keep: `woff2`, `woff`, `ttf`, `otf`, `eot`. Faces with no matching source are dropped (v1.3). Default: keep every format the upstream CSS provides |
-| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2) |
+| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2). v1.3.1: monospace detection now reads the binary's `post.isFixedPitch` flag, not just the family name |
 | `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `css` (default) |
 | `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
 | `--whitelist <spec>` (subset) | — | Extra codepoints to always include, on top of the DOM walk. CSS `unicode-range` syntax: `U+00A0,U+20AC,U+0020-007F` (v1.3) |
@@ -263,6 +263,7 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 - [x] **v1.2** — [Inspect + subset + fallback release](./docs/roadmap.md#v12--flagship-inspect--subset--fallback-release--shipped-2026-05-28): `fontfetch inspect` (terminal Wakamai Fondue), `--fallback` (zero-CLS `@font-face` blocks via capsize), `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset, no Python). Plus `font-display: swap` default and preload-hint header on every emitted `fonts.css`.
 - [x] **v1.2.1** — [Discovery + empty-state quick wins](./docs/roadmap.md#v121--discovery--empty-state-quick-wins--shipped): variable-font hint after pull, Next.js subset sibling probe, `--pages <N>` multi-page crawl, focused 0-declaration output.
 - [x] **v1.3** — [Modern emit + whitelist + per-language split](./docs/roadmap.md#v13--shipped-2026-05-28): `--formats=woff2` modern-only emit, `subset --whitelist=U+00A0,…` extra codepoints, `subset --split-ranges` Google-Fonts-style per-language woff2 + chained `fonts.subset.css` with `unicode-range:` declarations.
+- [x] **v1.3.1** — [Signal quality](./docs/roadmap.md#v131--signal-quality--shipped-2026-05-29): `--fallback` reads `post.isFixedPitch` (catches Operator / PragmataPro / Berkeley Mono); license classifier cross-references the binary's `name` table (ids 13 + 14); `LICENSE_REVIEW.md` calls out OFL Reserved Font Name families.
 - [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fromBuffer } from '@capsizecss/unpack';
 import { createFontStack } from '@capsizecss/core';
+import * as fontkit from 'fontkit';
 
 export type FallbackGenericFamily = 'sans-serif' | 'serif' | 'monospace';
 
@@ -74,10 +75,42 @@ const SYSTEM_FALLBACKS: Record<FallbackGenericFamily, FontMetrics> = {
 const MONO_NAME_RE = /\b(mono|code|console|typewriter)\b/i;
 const SERIF_NAME_RE = /\b(serif|antiqua|garamond|times|caslon|baskerville|bodoni|didot|georgia)\b/i;
 
-export function pickGenericFallback(familyName: string): FallbackGenericFamily {
+export interface PickGenericFallbackHint {
+  /** From the binary's `post` table. When true, force `monospace` regardless of the family name. Catches monospace families whose name doesn't say "mono" (Operator, PragmataPro, Comic Code). */
+  isFixedPitch?: boolean;
+}
+
+export function pickGenericFallback(
+  familyName: string,
+  hint: PickGenericFallbackHint = {},
+): FallbackGenericFamily {
+  if (hint.isFixedPitch === true) return 'monospace';
   if (MONO_NAME_RE.test(familyName)) return 'monospace';
   if (SERIF_NAME_RE.test(familyName)) return 'serif';
   return 'sans-serif';
+}
+
+/**
+ * Read `post.isFixedPitch` from a font buffer via fontkit. Returns `false`
+ * on any failure — the caller falls back to the family-name heuristic.
+ * Cheap: fontkit is already a runtime dep used by `inspect` and the
+ * variable-font summariser.
+ */
+function readIsFixedPitchFromBuffer(buffer: Buffer): boolean {
+  try {
+    const opened = (fontkit as unknown as { create: (b: Buffer) => unknown }).create(buffer);
+    const font = (
+      opened && typeof opened === 'object' && 'fonts' in opened
+        ? (opened as { fonts: Array<{ post?: { isFixedPitch?: boolean | number } }> }).fonts[0]
+        : (opened as { post?: { isFixedPitch?: boolean | number } })
+    );
+    const raw = font?.post?.isFixedPitch;
+    if (typeof raw === 'boolean') return raw;
+    if (typeof raw === 'number') return raw !== 0;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -94,7 +127,12 @@ export async function computeFallback(
   const buffer = await fs.readFile(abs);
   const raw = await fromBuffer(buffer);
 
-  const generic = options.generic ?? pickGenericFallback(raw.familyName);
+  // v1.3.1: cross-check the post table before the name regex so monospace
+  // families with non-obvious names (Operator, PragmataPro, Comic Code) get
+  // Courier New as their CLS fallback instead of Arial.
+  const isFixedPitch = readIsFixedPitchFromBuffer(buffer);
+  const generic =
+    options.generic ?? pickGenericFallback(raw.familyName, { isFixedPitch });
   const fallback = SYSTEM_FALLBACKS[generic];
 
   const stack = createFontStack(

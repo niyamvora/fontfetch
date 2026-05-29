@@ -213,6 +213,15 @@ export function buildLicenseReview(
       lines.push(`### ${family}`);
       lines.push('');
       lines.push(`- ${list[0].classification.reason}`);
+      // v1.3.1: OFL Reserved Font Name clause callout. Set by
+      // crossRefLicenseFromBinaries when name table id 13 declares RFN.
+      // Most-misunderstood OFL compliance pitfall — surface it explicitly
+      // so users don't redistribute under the same family name.
+      if (list.some((it) => it.classification.hasRFN)) {
+        lines.push(
+          `- ⚠ **OFL Reserved Font Name** — do not redistribute modified copies under the name "${family}". Rename the family before any redistribution that changes the binary.`,
+        );
+      }
       const fileList = list.flatMap((it) =>
         it.face.sources
           .map((s) => s.localFile)

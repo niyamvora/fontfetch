@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-05-29
+
+The "signal quality" point release. Two binary-driven refinements that close out the v1.2.x carryover queue: monospace detection now reads the `post` table instead of guessing from the family name, and the license classifier now cross-references the binary's OpenType `name` table before the final classification ships to disk. Plus, the OFL Reserved Font Name clause — the most-misunderstood OSS-font compliance pitfall — gets a first-class callout in `LICENSE_REVIEW.md`.
+
+### Changed
+- **`--fallback` reads `post.isFixedPitch` before falling back to the name regex.** Catches monospace families whose name doesn't say "mono" (Operator, PragmataPro, Comic Code, Berkeley Mono), so they get `Courier New` as their CLS fallback instead of `Arial`. Cheap — `fontkit` is already a runtime dep used by `inspect` and the variable-font summariser; the new path is one extra `create()` per family during `--fallback` computation.
+- **License classifier cross-references the downloaded binary's `name` table (ids 13 + 14) after the URL-signature pass.** Conservative promotion only: `unknown` faces whose binary self-declares OFL flip to `open`; commercial classifications are never demoted (URL signature still wins); `open` classifications are preserved. Closes the v1.1 roadmap item that was queued for v1.2.x.
+- **`LICENSE_REVIEW.md` now surfaces the OFL Reserved Font Name clause per family** when the binary's `name` table declares it. Worded as a callout (`⚠ OFL Reserved Font Name — do not redistribute modified copies under the name "<family>"`) so users don't accidentally violate the most-cited OFL compliance bug.
+
+### Added
+- New public export on `@fontfetch/core`: `crossRefLicenseFromBinaries(classified, filesDir) → ClassifiedFace[]` (from a new `license/binary-license.ts` module).
+- `LicenseClassification` gains an optional `hasRFN?: boolean` field. Set by the cross-ref pass; consumed by `buildLicenseReview`.
+- `InspectionReport` gains an `isFixedPitch: boolean` field. Read from `font.post?.isFixedPitch` (boolean or uint32 — both shapes are coerced).
+- `pickGenericFallback(familyName, hint?)` accepts an optional `{ isFixedPitch?: boolean }` hint. When the hint forces `monospace`, the name regex is bypassed. The single-arg form remains supported.
+
+### Notes
+- No new runtime dependencies. The cross-ref pass reuses the existing `inspect()` helper; the fallback pass reuses the existing `fontkit` runtime dep.
+- Bundle size unchanged at ~2.2 MB.
+- The cross-ref pass is non-fatal: missing files, parse failures, and absent OpenType tables all degrade gracefully back to the URL-signature classification.
+- Test surface grew from 132 → 144 vitest cases (new: `binary-license` with 6 cases, 3 new `pickGenericFallback` hint cases, 3 new `buildLicenseReview` RFN-callout cases). All green.
+
 ## [1.3.0] — 2026-05-28
 
 Three additions that round out the subsetting pipeline: format allowlists, codepoint whitelists, and Google-Fonts-style per-language splitting. After v1.3, fontfetch covers URL → folder extraction, per-language splits, and modern-format emit in a single CLI with no Python dependency.
