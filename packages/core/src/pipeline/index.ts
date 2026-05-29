@@ -5,3 +5,5 @@
  */
 export * from './pull.js';
 export * from './subset.js';
+export * from './diff.js';
+export * from './audit.js';

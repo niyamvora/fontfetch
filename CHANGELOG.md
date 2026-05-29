@@ -6,6 +6,61 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-05-29
+
+The "distribution surface + competitor-gap closeouts" release. Four engine-level additions that ship together and make fontfetch a release-gate tool, not just a dev convenience. Tag line: *"fontfetch 1.4: extract → audit → ship. With every page, every weight, and every font signal you didn't know you needed."*
+
+After v1.4 the CLI covers four new release-gate surfaces (`diff`, `audit`, `budget`, `--emit tokens`), surfaces cross-page font drift with `CONSISTENCY.md`, emits per-weight Capsize fallbacks (closing the fontaine #53 gap that's been open 3+ years), and ships a stable machine-readable `provenance.json` for downstream tooling.
+
+### Added
+
+- **`fontfetch diff <urlA> <urlB>` — new subcommand.** Runs `pull()` on both URLs in parallel, emits a structured diff: added / removed / shared families, byte delta, commercial delta. Use for staging-vs-prod checks, rebrand detection, competitor watching. `--json` for CI.
+  ```bash
+  fontfetch diff https://staging.acme.com https://acme.com
+  fontfetch diff https://staging.acme.com https://acme.com --json
+  ```
+  Powered by a new public export `diffPulls(urlA, urlB, baseDir, options)` returning a stable `FontDiff` shape.
+
+- **`fontfetch audit <url> [flags]` — new subcommand.** Drop-in CI command. Non-zero exit when any configured rule is violated. Flags:
+  - `--max-kb <N>` — total bundle byte budget
+  - `--per-family-kb <list>` — per-family budgets, e.g. `Inter:30,Geist:40`
+  - `--no-commercial` — fail if any face is classified commercial
+  - `--json` — machine-readable output
+  ```bash
+  fontfetch audit https://acme.com --max-kb 200 --no-commercial
+  fontfetch audit https://acme.com --per-family-kb Inter:50 --json
+  ```
+  Powered by a new public export `audit(url, baseDir, options)` returning a stable `AuditReport`.
+
+- **`fontfetch budget <url> --max-kb N` — new subcommand.** Convenience around `audit` for the bundle-size dimension only. Same `--json` and non-zero-exit semantics as `audit`. Pairs with size-limit-style CI flows.
+
+- **`--emit tokens` — W3C / DTCG design tokens emitter.** New target alongside `next` / `tailwind` / `vite`. Emits `fonts.tokens.json` with W3C Design Tokens Community Group ([tr.designtokens.org/format/](https://tr.designtokens.org/format/)) compatible token entries for every family + weight, plus a Tailwind-aligned size + line-height ladder. Consumed by Style Dictionary, Tokens Studio for Figma, Specify, and any tool that follows the DTCG draft.
+  ```bash
+  fontfetch https://vercel.com --emit tokens
+  ```
+
+- **Cross-page consistency report.** When `--pages > 1`, fontfetch now writes `CONSISTENCY.md` per pull listing shared-vs-divergent families across crawled pages. Surfaces the *"homepage uses Inter; /blog uses Tiempos; /pricing uses both"* problem that's been invisible since `--pages` shipped in v1.2.1. Zero competitors do this — none of them crawl multiple pages in the first place. New public exports: `computeConsistency`, `buildPageFaceMap`, `buildConsistencyReport`.
+
+- **Per-weight Capsize fallback metrics.** `--fallback` now emits one `<Family> Fallback` block per (family, weight, style) tuple instead of one per family. Each block carries matching `font-weight` and `font-style` declarations so browsers select the right fallback per face. Beats `fontaine` on their core feature (fontaine #53 — open 3+ years). New public export `buildPerFaceFallbacks(filesDir, faces)`; the v1.2 `buildFallbacksForDir(filesDir)` remains available for direct callers that want family-wide fallback.
+
+- **`provenance.json` per pull.** Stable, machine-readable schema (`schemaVersion: '1.0'`) carrying the v1.3.1-refined classifications + v0.6 provenance buckets + per-file byte sizes. Consumed by the new `audit` subcommand, the upcoming `fontfetch-action` GitHub Action, and any external CI / design-system tooling. The human-readable `LICENSE_REVIEW.md` is preserved unchanged. New public exports: `buildProvenanceJson()`, `ProvenanceReport`, `ProvenanceFaceEntry`, `ProvenanceFileEntry`.
+
+- **`PullResult.consistency` and `PullResult.fileSizes`.** New optional fields surface cross-page consistency data and per-file byte counts to non-CLI consumers (the webapp, the audit/diff pipeline).
+
+### Changed
+
+- **CLI dispatch gains three new subcommands** (`diff`, `audit`, `budget`). Existing dispatch (`inspect`, `subset`, default `pull`) is unchanged.
+- **`PullOptions.emit`** accepts `'tokens'` alongside the existing targets. Existing callers are unaffected.
+- **`pull()` per-source face extraction** is preserved as a parallel `facesPerSource` array so the consistency report can attribute faces back to their page-of-origin. The flattened `faces` array is unchanged externally.
+
+### Notes
+
+- No new runtime dependencies. All four features compose on top of fontkit + capsize + the existing pipeline.
+- Bundle size unchanged at ~2.2 MB.
+- The new public exports follow the same stability guarantee as the rest of `@fontfetch/core`: additive changes only within a minor; shape changes require a major bump.
+- `audit` runs the full `pull()` under the hood — no second-pass dry-run mode. For CI flows that need only the audit verdict and not the bundle, use `--json` and discard `outDir` after parsing the report.
+- Test surface grew from 144 → 183 vitest cases (new: `provenance-json` with 8 cases, `tokens` emitter with 7 cases, `consistency` with 10 cases, `diff` with 3 cases, `audit` with 8 cases, plus 3 new `formatFallbackCss` per-weight cases).
+
 ## [1.3.1] — 2026-05-29
 
 The "signal quality" point release. Two binary-driven refinements that close out the v1.2.x carryover queue: monospace detection now reads the `post` table instead of guessing from the family name, and the license classifier now cross-references the binary's OpenType `name` table before the final classification ships to disk. Plus, the OFL Reserved Font Name clause — the most-misunderstood OSS-font compliance pitfall — gets a first-class callout in `LICENSE_REVIEW.md`.

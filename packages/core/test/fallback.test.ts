@@ -86,3 +86,51 @@ describe('formatFallbackCss', () => {
     expect(css).toContain("src: local('Courier New')");
   });
 });
+
+describe('formatFallbackCss — v1.4 per-weight emit', () => {
+  it('declares font-weight + font-style when supplied', () => {
+    const css = formatFallbackCss({
+      familyName: 'Inter',
+      fallbackFamily: 'Inter Fallback',
+      generic: 'sans-serif',
+      sizeAdjust: '107.4%',
+      ascentOverride: '90%',
+      descentOverride: '22.4%',
+      lineGapOverride: '0%',
+      fontWeight: '700',
+      fontStyle: 'normal',
+    });
+    expect(css).toContain('font-weight: 700');
+    expect(css).toContain('font-style: normal');
+  });
+
+  it('emits italic-tagged blocks with the italic style', () => {
+    const css = formatFallbackCss({
+      familyName: 'Inter',
+      fallbackFamily: 'Inter Fallback',
+      generic: 'sans-serif',
+      sizeAdjust: '107.4%',
+      ascentOverride: '90%',
+      descentOverride: '22.4%',
+      lineGapOverride: '0%',
+      fontWeight: '400',
+      fontStyle: 'italic',
+    });
+    expect(css).toContain('font-style: italic');
+    expect(css).toContain('(400 italic)');
+  });
+
+  it('preserves the family-wide v1.2 behaviour when no weight/style supplied', () => {
+    const css = formatFallbackCss({
+      familyName: 'Inter',
+      fallbackFamily: 'Inter Fallback',
+      generic: 'sans-serif',
+      sizeAdjust: '107.4%',
+      ascentOverride: '90%',
+      descentOverride: '22.4%',
+      lineGapOverride: '0%',
+    });
+    expect(css).not.toContain('font-weight:');
+    expect(css).not.toContain('font-style:');
+  });
+});

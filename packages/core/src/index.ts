@@ -124,3 +124,19 @@ export type {
   SubsetOptions,
   SplitFamilyReport,
 } from './pipeline/index.js';
+
+export { diffPulls, formatFontDiff } from './pipeline/index.js';
+export type { FontDiff, DiffSide } from './pipeline/index.js';
+
+export { audit, formatAuditReport } from './pipeline/index.js';
+export type { AuditReport, AuditOptions, AuditViolation } from './pipeline/index.js';
+
+export { buildProvenanceJson } from './emit/index.js';
+export type { ProvenanceReport, ProvenanceFaceEntry, ProvenanceFileEntry } from './emit/index.js';
+
+export {
+  computeConsistency,
+  buildPageFaceMap,
+  buildConsistencyReport,
+} from './parse/index.js';
+export type { ConsistencyReport, PageFaceMap } from './parse/index.js';

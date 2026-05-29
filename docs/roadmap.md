@@ -543,19 +543,45 @@ The OFL Reserved Font Name clause is the most-misunderstood OSS-font compliance 
 - New types: `LicenseClassification.hasRFN?` (optional), `InspectionReport.isFixedPitch` (required).
 - Test surface grew from 132 → 144 vitest cases (new: `binary-license` with 6 cases, plus the new `fallback` hint + `buildLicenseReview` RFN coverage).
 
-## v1.4 — distribution surface (planned)
+## v1.4 — distribution surface + competitor-gap closeouts (v1.4.0 ✓ shipped 2026-05-29 · distribution channels planned for v1.4.x)
 
-Once v1.3 lands, the next gain is showing up where users already are. Each item below uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems.
+Once v1.3 lands, the next gain is showing up where users already are *and* closing the highest-value gaps the [2026-05-28 competitor-feature-gaps research](./research-competitor-feature-gaps-2026-05-28.md#table-1--feature-gaps-in-the-entire-landscape) flagged as still untouched. Each item below either uses fontfetch as its engine and earns stars / installs by sitting in adjacent ecosystems, or fills a Table 1 row that no competitor ships today.
+
+**v1.4.0 ships the engine work** — `diff`, `audit`, `budget` CLI subcommands; `--emit tokens`; cross-page `CONSISTENCY.md`; per-weight Capsize fallback; machine-readable `provenance.json`. **v1.4.x will follow** with the distribution channels (GH Action, Raycast, brew, GDPR mode, var-collapse hint, registry npm) — each ships independently and their pace is set by usage feedback on v1.4.0.
+
+### Distribution surfaces
 
 - **`fontfetch-action` GitHub Action.** PR comments on font drift: *"`apps/web/app/page.tsx` references a new `@font-face` — fetched it, classified `Söhne` as commercial, +180 KB. Consider one of these OFL alternatives from the pairings registry."* Distribution flywheel; every adopting repo is a starred-adjacent signal.
-- **`fontfetch diff <url1> <url2>`.** Detect font drift between two URLs (the staging-vs-prod use case, the rebrand-detect use case, the competitor-watch use case). The "Stripe rebrand: dropped Söhne, added Inter Display" tweet writes itself.
-- **`fontfetch audit <url> --max-kb 100 --no-commercial`.** Drop-in CI command; non-zero exit if the homepage adds a commercial font or busts a budget. Pairs with the GH Action.
+- **`fontfetch diff <url1> <url2>`.** Detect font drift between two URLs (the staging-vs-prod use case, the rebrand-detect use case, the competitor-watch use case). The "Stripe rebrand: dropped Söhne, added Inter Display" tweet writes itself. Closes Table 1 row 10.
+- **`fontfetch audit <url> --max-kb 100 --no-commercial`.** Drop-in CI command; non-zero exit if the homepage adds a commercial font or busts a budget. Pairs with the GH Action. Closes Table 1 rows 2 + 5.
 - **`fontfetch budget` for CI.** Per-family size budgets with `--json` for downstream tools (Lighthouse-CI lookalike, size-limit style).
 - **Raycast extension.** *"fontfetch &lt;url&gt; → CSS to clipboard."* Designer-dev crossover audience; Raycast extensions show up in product roundups.
 - **Homebrew tap.** `brew install fontfetch`. Once we cross ~500 stars, distribution maintenance pays off.
 - **GDPR mode (`--gdpr-report`)**. Scan a URL, list every third-party font request (Google Fonts CDN, Adobe Fonts, Hatch, MyFonts CDN), output a `GDPR.md` checklist with one-line remediation per family. Direct ride-along on the German court ruling SEO wave.
 - **Variable-font collapse hint.** When the extractor finds 9 static weight files plus a `.var.woff2` from the same family on the same CDN, recommend the variable file with a 1-line diff of the bundle size you'd save.
 - **`@fontfetch/registry` typed package.** Publish a thin npm wrapper around `pairings/*.json` so third-party tooling (font pickers, design plugins) can consume the registry with autocomplete and types. Turns the registry into a real ecosystem primitive.
+
+### Competitor-gap closeouts ✓ shipped 2026-05-29 in v1.4.0 (from Table 1 audit)
+
+Four high-value rows from the competitor-gaps research that no tool in the landscape ships today. Each is small enough to fold into the v1.4 minor; none warrants its own release. Folded in here rather than queued for v1.5 so the v1.4 launch story compounds — *"distribution + the gaps everyone else still has"* is a stronger tagline than *"distribution alone."*
+
+- ✓ **Cross-page consistency audit** *(Table 1 row 1 — High).* The `--pages` crawl from v1.2.1 already collects multi-page font data; v1.4.0 added the diff/report step. New `CONSISTENCY.md` per pull when `--pages > 1` lists shared families and divergence per page (*"homepage loads Inter; `/blog` and `/pricing` load Tiempos"*). New public exports: `computeConsistency`, `buildPageFaceMap`, `buildConsistencyReport`. Genuinely zero competitors do this — none of them crawl multiple pages in the first place.
+
+- ✓ **Per-weight Capsize fallback metrics** *(Table 1 row 4 — High).* `--fallback` now emits one `<Family> Fallback` block per (family, weight, style) tuple via the new `buildPerFaceFallbacks(filesDir, faces)` helper. Each block carries matching `font-weight` and `font-style` declarations so browsers select the right fallback per face. Beats `fontaine` on their core feature ([fontaine #53](https://github.com/unjs/fontaine/issues/53), open 3+ years). Tagline: *"the fontaine you wanted, no Nuxt required."*
+
+- ✓ **Provenance + license JSON endpoint** *(Table 1 row 6 — High).* Every pull now writes `provenance.json` alongside `LICENSE_REVIEW.md`. Stable `schemaVersion: '1.0'` carrying the v1.3.1-refined classifications + v0.6 provenance buckets + per-file byte sizes. New public exports: `buildProvenanceJson`, `ProvenanceReport`. Consumed by the new `audit` subcommand and the upcoming `fontfetch-action` GitHub Action.
+
+- ✓ **`--emit tokens` for W3C / Style Dictionary** *(Table 1 row 7 — Medium-High).* New emitter target alongside `next` / `tailwind` / `vite`. Emits `fonts.tokens.json` with W3C Design Tokens Community Group ([tr.designtokens.org/format/](https://tr.designtokens.org/format/)) entries for every family + weight, plus a Tailwind-aligned size + line-height ladder. Drops into Style Dictionary, Tokens Studio for Figma, Specify.
+
+### v1.4.0 shipping notes
+
+- No new runtime dependencies. All four closeouts compose on top of `fontkit` + capsize + the existing pipeline.
+- Bundle size unchanged at ~2.2 MB.
+- The three new CLI subcommands (`fontfetch diff`, `fontfetch audit`, `fontfetch budget`) all support `--json` for CI integration and exit non-zero on failure.
+- New public exports on `@fontfetch/core`: `diffPulls`, `formatFontDiff`, `audit`, `formatAuditReport`, `buildPerFaceFallbacks`, `buildProvenanceJson`, `computeConsistency`, `buildPageFaceMap`, `buildConsistencyReport`. New types: `FontDiff`, `DiffSide`, `AuditReport`, `AuditOptions`, `AuditViolation`, `ProvenanceReport`, `ProvenanceFaceEntry`, `ProvenanceFileEntry`, `ConsistencyReport`, `PageFaceMap`. `PullResult` gains optional `consistency` and `fileSizes` fields. `PullOptions.emit` accepts `'tokens'`.
+- Test surface grew from 144 → 183 vitest cases (`provenance-json` 8, `tokens` emitter 7, `consistency` 10, `diff` 3, `audit` 8, plus 3 new per-weight `formatFallbackCss` cases).
+
+The remaining open Table 1 rows (Adobe Typekit unwinding, variable-axis preset emit, `@font-face` emit from a local file, OpenType feature CSS classes, Node API documentation, a11y/readability sanity, single-static-binary build) are intentionally held for v1.4.x point releases or v1.5+ — each fills a Medium-strategic gap, none compounds the v1.4 distribution story enough to fold in now.
 
 ## Package layout (post v1.3)
 

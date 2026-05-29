@@ -27,7 +27,7 @@ export interface PullOptions {
   baseDir: string;
   headless?: boolean;
   /** Framework targets to emit alongside the default css output. */
-  emit?: ('next' | 'tailwind' | 'vite')[];
+  emit?: ('next' | 'tailwind' | 'vite' | 'tokens')[];
   /**
    * Skip the fail-fast check that aborts when every detected font URL points
    * at a known commercial-foundry CDN. Useful when the user knows what they're
@@ -115,6 +115,22 @@ export interface PullResult {
   pagesCrawled: number;
   /** URLs discovered via the Next.js subset sibling probe. */
   discoveredNextjsSiblings: string[];
+  /**
+   * v1.4: cross-page consistency report. Present only when more than one page
+   * was crawled (`pages > 1`). Lists shared families, per-page family sets,
+   * and divergent pages.
+   */
+  consistency?: {
+    shared: string[];
+    perPage: { url: string; families: string[] }[];
+    divergent: { url: string; onlyHere: string[]; missingHere: string[] }[];
+  };
+  /**
+   * v1.4: per-file size map keyed by the local file name (relative to
+   * `files/`). Populated as downloads succeed. Consumed by audit/budget
+   * subcommands and the provenance.json emitter.
+   */
+  fileSizes?: Record<string, number>;
 }
 
 export interface CssSource {

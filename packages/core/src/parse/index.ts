@@ -4,3 +4,4 @@
  */
 export * from './parse.js';
 export * from './crawl.js';
+export * from './consistency.js';
