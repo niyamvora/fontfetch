@@ -583,21 +583,132 @@ Four high-value rows from the competitor-gaps research that no tool in the lands
 
 The remaining open Table 1 rows (Adobe Typekit unwinding, variable-axis preset emit, `@font-face` emit from a local file, OpenType feature CSS classes, Node API documentation, a11y/readability sanity, single-static-binary build) are intentionally held for v1.4.x point releases or v1.5+ — each fills a Medium-strategic gap, none compounds the v1.4 distribution story enough to fold in now.
 
-## Package layout (post v1.3)
+## v1.5 — prototype-grade font morphing (CLI) (planned)
 
-The current monorepo holds `@fontfetch/core` and `fontfetch` (CLI). v1.2+ adds slim sibling packages — each consumable on its own but composed under the single `npx fontfetch` verb:
+The first feature that gives fontfetch a UI moat over its CLI competitors. **Pre-commission ideation for designers** — drag four sliders to round / widen / slant / thicken a font, export the morph as a real binary, show a client. Designed for the workflow *"we want a custom typeface, what could it look like?"* — not as a replacement for commissioning a real type designer, but as the sketchbook that comes before commissioning one.
+
+The category vacancy is real. [Prototypo](https://github.com/byte-foundry/prototypo) tried this as a paid service (2014–2020) and died from the supply problem of authoring parametric formulas glyph-by-glyph. fontfetch's angle flips the problem: we don't generate fonts, we transform existing finished ones. Every OFL font on the web becomes a sketch starting point.
+
+### Scope
+
+New CLI subcommand:
+
+```bash
+fontfetch morph <font-file> [options]
+
+  --round=<N>         Corner radius 0-100% (default 0)
+  --width=<N>         Horizontal scale 80-120% (default 100)
+  --slant=<N>         Slant angle 0-15 degrees (default 0)
+  --weight=<±N>       Stroke weight ±20% (default 0). Uses wght axis if variable.
+  --rename=<NAME>     Override the default "<original> Prototype" name
+  --watermark         Force the in-binary watermark (default on for commercial inputs)
+  --formats=<list>    Output formats — woff2,woff,ttf,otf (default: woff2)
+  --json              Machine-readable result on stdout
+```
+
+Four transforms by complexity:
+
+- **Width** (matrix transform) — trivial, lossless.
+- **Slant** (shear transform) — trivial, lossless. Honest about being a faux italic.
+- **Roundness** (corner fillet) — medium. Walk every hard corner, insert a bezier arc with clamped radius.
+- **Weight** (path offset) — hard on static fonts (clamped at ±15%, marked experimental); lossless via the `wght` axis on variable fonts.
+
+### Licensing posture (the gate, not a footnote)
+
+**v1.5 ships with the "allow all, warn per font" posture.** Any font fontfetch can extract can be morphed, with the following non-optional guardrails:
+
+- Per-font warning at morph time when the v1.3.1 classifier marks the input `commercial` — "*This font's EULA almost certainly forbids modification. Use only for internal prototyping; do not distribute the result.*"
+- Output watermark embedded in the binary's `name` table (id 256+) for commercial-classified inputs — survives copy/paste, includes the line *"PROTOTYPE — derived from `<Original Family>` by fontfetch morph. Not for production use."*
+- Default download bundle for commercial-input morphs is named `MOCKUP_<family>.zip`, ships with an opt-out-disabled `MOCKUP_DISCLAIMER.md`, and the file itself is named `<family>-prototype.woff2` (not `<family>.woff2`).
+- CLI exits 0 on success but emits a stderr warning when the input was commercial — so CI flows can grep for it.
+- The webapp (v1.6) shows a one-time-per-session modal on first commercial morph; the localStorage flag suppresses subsequent prompts.
+
+**OFL fonts get the clean path** — the v1.3.1 `hasRFN` flag drives mandatory rename enforcement (the most-misunderstood OFL clause), license + attribution travel with the derivative, no watermark needed.
+
+### Standing decision on the open posture
+
+The day the first foundry cease-and-desist email arrives, the project flips to an OFL-only posture immediately, same day, no debate. The engine is the same either way; only the gating layer flips. Treat the open posture as a default that's one email away from becoming the closed posture; the OFL-only code path exists from v1.5 day one so the flip is a config change, not a refactor.
+
+A `morphBlocklist` array in code (initially empty) supports per-foundry hard-blocks via URL signatures — same shape as the existing CDN signature lists. A `FONTFETCH_MORPH_POSTURE` env var toggles between `open` (default) and `ofl-only` modes.
+
+### Dependencies + package
+
+- New runtime deps: `bezier-js` (corner fillet, ~32 KB MIT), `paper.js` core (path offset, ~80 KB tree-shaken MIT), `opentype.js` (font binary rewrite — `fontkit` reads but its write surface is incomplete).
+- `wawoff2` for compression (already indirect via `subset-font`).
+- The morph engine lives in a new workspace package `@fontfetch/morph`. CLI bundle grows ~2.26 MB → ~2.7 MB.
+
+### Test plan
+
+- Width / slant: unit tests on glyph-path matrix transforms.
+- Roundness: tests on hard-corner detection + fillet generation against known glyph fixtures.
+- Weight: variable-axis happy path + static-font offset with explicit "this is best-effort" assertions.
+- Name table rewrite: round-trip tests that the morphed binary parses cleanly with `fontkit`.
+- Watermark: assertions that commercial-classified inputs produce binaries with the disclaimer name-table entry.
+
+Detailed technical design lives in the internal morph research doc. Public-facing scope here.
+
+## v1.6 — webapp morph editor (planned)
+
+The argument for morph really lives in the webapp, not the CLI. v1.6 adds `/edit/[id]` under the existing `apps/web` route tree.
+
+- Two-pane preview: original on the left, morphed on the right, synchronised sample text + size.
+- Four live sliders (width / slant / round / weight). Slider changes run the transform in a Web Worker (paper.js + opentype.js client-side) so the main thread stays smooth.
+- Sample text is editable. Preset chips below the slider stack (six hand-curated starting points).
+- "Export" hits a Server Action that runs the full morph pipeline server-side (the woff2 compression WASM is reliable there). Returns a signed download URL — the bundle includes the morphed binary, an updated `fonts.css`, and (for commercial inputs) the `MOCKUP_DISCLAIMER.md`.
+- **"Share preview" link** — generates a `/preview/<previewId>` URL with `{ font, params }` baked in, 24h TTL, no editing. The designer pastes it in Slack to their client. The client gets a non-editable preview page with a "thumbs up / thumbs down" button. This is the killer workflow piece — no other tool addresses the designer → client handoff at all.
+
+Lazy-loaded paper.js + opentype.js + wawoff2 — homepage bundle unaffected. Mobile Safari degrades to a "tap to refresh" experience when Web Workers + WASM hits its edge cases.
+
+## v1.7 — preset library + community morphs (planned)
+
+Once v1.5 + v1.6 ship, presets are days of work, not weeks. Cleanest path: mirror the existing `pairings/` registry infrastructure.
+
+```
+morphs/
+├── README.md
+├── _schema.json                Draft 2020-12 JSON Schema
+└── <slug>.json                 One file per morph preset
+```
+
+Each preset:
+
+```json
+{
+  "slug": "more-friendly",
+  "name": "More friendly",
+  "params": { "round": 25, "width": 102, "weight": 0, "slant": 0 },
+  "description": "Soften the corners, slightly wider — turns geometric sans into something rounder.",
+  "best_for": ["geometric-sans", "sans-serif"],
+  "submitter": "@niyamvora"
+}
+```
+
+Webapp `/morphs` index page mirrors `/pairings`. Each preset has a "click to apply to my current pull" wire that deep-links into `/edit/[id]?preset=<slug>`.
+
+Seed presets (hand-curated for launch): `more-friendly`, `more-editorial`, `fake-display`, `fake-italic`, `soft-techie`, `condensed-sans`.
+
+## v1.5.x — workspace package split (infrastructure)
+
+Not a release tag — a structural change that happens alongside v1.5+ and unblocks third-party reuse. The current `@fontfetch/core` carries everything; the post-v1.3 plan in [Package layout](#package-layout-post-v13) below has always called for slim sibling packages. v1.5+ is when that split actually happens because the morph engine arrives as its own dependency-heavy package and would balloon `core` if folded in.
 
 ```
 packages/
-├── core/        existing — extraction + classification + emitters + pull()
+├── core/        existing — extraction + classification + pull()
 ├── cli/         existing — the published `fontfetch` binary
-├── inspect/     new — name-table / axes / features / license-from-binary
-├── subset/      new — Puppeteer DOM scrape + harfbuzzjs subset
-├── fallback/    new — capsize-driven CLS-killing @font-face emitter
-└── registry/    new — typed access to pairings/*.json
+├── registry/    existing — typed pairings consumer (shipped v1.4.0)
+├── inspect/     new in v1.5.x — name-table / axes / features / license-from-binary
+├── subset/      new in v1.5.x — Playwright DOM scrape + harfbuzzjs subset
+├── fallback/    new in v1.5.x — capsize-driven CLS-killing @font-face emitter
+└── morph/       new in v1.5 — bezier-js + paper.js + opentype.js parametric morph
 ```
 
-`fontfetch` CLI re-exports each sub-command (`fontfetch inspect`, `fontfetch subset`, `fontfetch fallback`, `fontfetch lookup`). The 90% of users only ever type `npx fontfetch`; the 10% who want primitives import from `@fontfetch/inspect` directly.
+`fontfetch` CLI re-exports each sub-command (`fontfetch inspect`, `fontfetch subset`, `fontfetch fallback`, `fontfetch lookup`, `fontfetch morph`). The 90% of users only ever type `npx fontfetch`; the 10% who want primitives import from `@fontfetch/inspect` directly.
+
+Each split is mechanical — move files between packages, update `@fontfetch/core` exports to re-export the relocated symbols for backward compatibility, bump consumer imports lazily.
+
+## Package layout (post v1.3)
+
+Original plan from the v1.0 / post-v1.3 era. Superseded by the [v1.5.x — workspace package split](#v15x--workspace-package-split-infrastructure) section above which carries the current shape (the `registry/` package shipped in v1.4.0; the remaining splits are queued for v1.5.x). This anchor is preserved so external links to `#package-layout-post-v13` still resolve.
 
 ## v0.7 — accounts + saved sessions (planned)
 
