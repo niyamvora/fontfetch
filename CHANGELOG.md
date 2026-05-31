@@ -202,7 +202,7 @@ The "inspect + subset + fallback" release. Three flagship subcommands ship toget
 - Per-file progress log prefixes the bucket: `✓ google/Inter-Regular.woff2` instead of `✓ Inter-Regular.woff2`.
 
 ### Notes
-- v0.5 was originally scoped as a static `preview.html`. We've decided to skip that and roll it into a much larger v0.5 — a hosted Next.js webapp at `fontfetch.dev` with live progress, foundry-style previews, side-by-side compare, and font-pairing. See [docs/roadmap.md](docs/roadmap.md#v05--hosted-webapp) for the public plan.
+- v0.5 was originally scoped as a static `preview.html`. We've decided to skip that and roll it into a much larger v0.5 — a hosted Next.js webapp at `fontfetch.dev` with live progress, foundry-style previews, side-by-side compare, and font-pairing. See [docs/roadmap.html](docs/roadmap.html#v05) for the public plan.
 
 ## [0.4.0] — 2026-05-27
 
