@@ -13,5 +13,4 @@ pnpm add @fontfetch/core@workspace:*
 
 The webapp imports the shared pipeline from [`@fontfetch/core`](../../packages/core),
 exposes `POST /api/pull` as a Route Handler, and streams progress events over
-SSE. See [docs/roadmap.md](../../docs/roadmap.md#v05--hosted-webapp) for the
-public scope.
+SSE. See [docs/roadmap.html](../../docs/roadmap.html#v05) for the public scope.

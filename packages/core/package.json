@@ -1,6 +1,6 @@
 {
   "name": "@fontfetch/core",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "description": "Shared pipeline for fontfetch — URL → @font-face extraction, download, license classification, framework emitters, font inspection, CLS-killing fallback metrics, and DOM-driven subsetting. Consumed by the CLI and the fontfetch.dev webapp.",
   "type": "module",

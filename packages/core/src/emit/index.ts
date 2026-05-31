@@ -4,3 +4,4 @@
  */
 export * from './emit.js';
 export * from './emitters/index.js';
+export * from './gdpr.js';

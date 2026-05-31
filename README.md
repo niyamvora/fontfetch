@@ -62,11 +62,28 @@ Run on demand:
 npx fontfetch <url>
 ```
 
-Or install globally:
+Install globally:
 
 ```bash
 npm install -g fontfetch
 fontfetch <url>
+```
+
+Or pick the distribution channel that fits your workflow (v1.4):
+
+```bash
+# Homebrew tap (once published — see extensions/homebrew/)
+brew install niyamvora/fontfetch/fontfetch
+
+# GitHub Action (PR comments on font drift, CI release-gate)
+# uses: niyamvora/fontfetch-action@v1
+# See extensions/github-action/README.md
+
+# Raycast extension (Cmd-Space → Extract Fonts from URL)
+# See extensions/raycast/README.md
+
+# Programmatic access to the pairings registry
+npm install @fontfetch/registry
 ```
 
 Requires Node 18+.
@@ -77,6 +94,9 @@ Requires Node 18+.
 fontfetch <url> [outDir] [--headless] [--pages <N>] [--fallback] [--emit ...] [--formats ...] [--force]
 fontfetch inspect <font-file>
 fontfetch subset <url> [outDir] [--whitelist <spec>] [--split-ranges[=<buckets>]]
+fontfetch diff <urlA> <urlB> [outDir] [--json]                              # v1.4
+fontfetch audit <url> [--max-kb N] [--per-family-kb F:N,...] [--no-commercial] [--json]   # v1.4
+fontfetch budget <url> --max-kb N [outDir] [--json]                         # v1.4
 ```
 
 | Arg / Flag | Default | Notes |
@@ -86,8 +106,9 @@ fontfetch subset <url> [outDir] [--whitelist <spec>] [--split-ranges[=<buckets>]
 | `--headless` | off | Launch Playwright/Chromium to also catch JS-loaded fonts |
 | `--pages <N>` | `1` | Crawl up to N pages (entry + N-1 same-origin internal links) and merge fonts across all of them (v1.2.1). Max 50 |
 | `--formats <list>` | — | Comma-separated allowlist of font formats to keep: `woff2`, `woff`, `ttf`, `otf`, `eot`. Faces with no matching source are dropped (v1.3). Default: keep every format the upstream CSS provides |
-| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2). v1.3.1: monospace detection now reads the binary's `post.isFixedPitch` flag, not just the family name |
-| `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `css` (default) |
+| `--fallback` | off | Emit a CLS-killing `<Family> Fallback` `@font-face` per family, with `size-adjust` / `ascent-override` / `descent-override` / `line-gap-override` matched via capsize metrics (v1.2). v1.3.1: monospace detection now reads the binary's `post.isFixedPitch` flag, not just the family name. v1.4: emits one block per (family, weight, style) tuple |
+| `--gdpr-report` | off | Emit `GDPR.md` + `gdpr.json` listing every third-party font request with self-host remediation (v1.4) |
+| `--emit <list>` | — | Framework configs: `next`, `tailwind`, `vite`, `tokens` (v1.4), `css` (default) |
 | `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
 | `--whitelist <spec>` (subset) | — | Extra codepoints to always include, on top of the DOM walk. CSS `unicode-range` syntax: `U+00A0,U+20AC,U+0020-007F` (v1.3) |
 | `--split-ranges[=<buckets>]` (subset) | off | Emit one woff2 per Google Fonts language bucket (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`) and a chained `fonts.subset.css` (v1.3) |
@@ -107,6 +128,49 @@ fontfetch subset https://stripe.com
 fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC
 fontfetch subset https://stripe.com --split-ranges
 ```
+
+### What's new in v1.4
+
+**Eight features in one minor.** Four close out the engine work (competitor-gap closeouts from the [2026-05-28 research](./docs/research-competitor-feature-gaps-2026-05-28.md)) and four ship as distribution channels so fontfetch shows up where users already work.
+
+#### Distribution channels
+
+- **`@fontfetch/registry`** — new typed npm package. Consumes the community pairings registry with full autocomplete:
+  ```bash
+  npm install @fontfetch/registry
+  ```
+  ```ts
+  import { findByFamily, freeAlternativesFor } from '@fontfetch/registry';
+  freeAlternativesFor('Söhne');  // ['Inter', 'Manrope', 'Outfit']
+  ```
+- **`fontfetch-action` GitHub Action** ([`extensions/github-action/`](./extensions/github-action)). PR comments on font drift; non-zero exit when budgets bust or commercial faces sneak in.
+- **Raycast extension** ([`extensions/raycast/`](./extensions/raycast)). Three commands: extract fonts from a URL (CSS to clipboard), audit a URL (HUD verdict), search the pairings registry.
+- **Homebrew Formula** ([`extensions/homebrew/`](./extensions/homebrew)). Source-of-truth tap Formula ready to publish to `homebrew-fontfetch` when warranted.
+- **`--gdpr-report` flag.** Emits `GDPR.md` + `gdpr.json` listing every third-party font request with self-host remediation. Post-LG München I 20 O 1393/21 (2022) German court ruling on Google Fonts CDN.
+- **Variable-font collapse hint.** When a family ships both a variable binary and ≥ 2 static weight files, fontfetch surfaces a one-liner with the byte saving.
+
+#### Engine — release-gate capabilities
+
+- **`fontfetch diff <urlA> <urlB>` — staging-vs-prod font drift.** Runs `pull()` on both URLs, prints added / removed / shared families with byte and commercial delta. `--json` for CI:
+  ```bash
+  fontfetch diff https://staging.acme.com https://acme.com
+  fontfetch diff https://staging.acme.com https://acme.com --json
+  ```
+- **`fontfetch audit <url>` — CI release gate.** Non-zero exit on configured rule violations. Combine `--max-kb`, `--per-family-kb`, `--no-commercial`. Pairs with `--json` for downstream tools:
+  ```bash
+  fontfetch audit https://acme.com --max-kb 200 --no-commercial
+  fontfetch audit https://acme.com --per-family-kb Inter:50,Geist:30 --json
+  ```
+- **`fontfetch budget <url> --max-kb N` — bundle-size budget shortcut.** Same engine as `audit` with only the size dimension wired. Drop-in for size-limit / Lighthouse-CI workflows.
+- **`--emit tokens` — W3C / DTCG design tokens.** New emitter alongside `next` / `tailwind` / `vite`. Writes `fonts.tokens.json` with W3C Design Tokens Community Group ([tr.designtokens.org/format/](https://tr.designtokens.org/format/)) entries for every family + weight, plus a Tailwind-aligned size + line-height ladder. Drop into Style Dictionary, Tokens Studio for Figma, or Specify:
+  ```bash
+  fontfetch https://vercel.com --emit tokens
+  ```
+- **`CONSISTENCY.md` cross-page report.** When `--pages > 1`, fontfetch writes a per-pull report of shared-vs-divergent families across crawled pages. *"Homepage uses Inter; `/blog` uses Tiempos"* — the report names the divergence per page. No competitor does this.
+- **Per-weight Capsize fallback metrics.** `--fallback` now emits one `<Family> Fallback` block per (family, weight, style) tuple, each with matching `font-weight` and `font-style` declarations. Beats `fontaine` on their core feature ([fontaine #53](https://github.com/unjs/fontaine/issues/53), open 3+ years).
+- **`provenance.json` machine-readable license + provenance.** Stable v1.0 schema. Shipped per pull alongside `LICENSE_REVIEW.md`. Consumed by `fontfetch audit`, the upcoming `fontfetch-action` GitHub Action, and external CI tools.
+
+No new runtime dependencies; bundle size unchanged at ~2.2 MB.
 
 ### What's new in v1.3
 
@@ -240,31 +304,35 @@ No browser launched, no dependencies pulled at install time outside of TypeScrip
 
 ## How it compares
 
-| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Per-language split | Modern-only | Zero-CLS fallback |
-|---|---|---|---|---|---|---|---|---|---|
-| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✓ (Google catalog only) | ✓ | ✗ |
-| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | partial (unicode-range computed) | partial | ✗ |
-| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✗ | n/a | ✓ (Nuxt/Vite only) |
-| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ | n/a | ✗ |
-| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite | ✓ | ✓ (Node, no Python) | ✓ Google Fonts buckets (v1.3) | ✓ `--formats=woff2` (v1.3) | ✓ framework-agnostic |
+| Tool | Any URL | JS-rendered fonts | License classify | Framework emit | Inspect | Subset | Per-language split | Modern-only | Zero-CLS fallback | CI release-gate | Cross-page |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `google-webfonts-helper` | Google only | n/a | n/a | ✗ | ✗ | ✗ | ✓ (Google catalog only) | ✓ | ✗ | ✗ | ✗ |
+| `webfont-dl` | needs CSS URL | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `glyphhanger` | ✓ (Puppeteer) | ✓ | ✗ | ✗ | ✗ | ✓ (Python `fonttools`) | partial (unicode-range computed) | partial | ✗ | ✗ | ✗ |
+| `fontaine` | n/a | n/a | n/a | partial | ✗ | ✗ | ✗ | n/a | ✓ family-wide (Nuxt/Vite only) | ✗ | ✗ |
+| `fontkit` | library, not a CLI | n/a | partial | ✗ | partial (library) | ✗ | ✗ | n/a | ✗ | ✗ | ✗ |
+| Chrome extensions | ✓ (manual) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **`fontfetch`** | ✓ | ✓ | ✓ | ✓ next/tailwind/vite/**tokens** (v1.4) | ✓ | ✓ (Node, no Python) | ✓ Google Fonts buckets (v1.3) | ✓ `--formats=woff2` (v1.3) | ✓ **per-weight**, framework-agnostic (v1.4) | ✓ `audit` / `budget` / `diff` / `--json` (v1.4) | ✓ `CONSISTENCY.md` via `--pages` (v1.4) |
+
+*"CI release-gate"* means non-zero exit codes on rule violations + `--json` output for downstream tooling. *"Cross-page"* means crawling multiple pages from a single entry URL and surfacing typography drift between them. Both are categories with zero competitors today.
 
 ## Roadmap
 
 - [x] **v0.1** — Static `@font-face` extraction, ready-to-use CSS, manifest, README
-- [x] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.md#v011--community-font-pairing-registry): share what fonts your favorite sites use, with free OFL alternatives
+- [x] **v0.1.1** — [Community font-pairing registry](./docs/roadmap.html#v011): share what fonts your favorite sites use, with free OFL alternatives
 - [x] **v0.2** — `--headless` flag: Playwright mode for JS-loaded fonts (Adobe Typekit, SPAs, Cloudflare-protected sites)
 - [x] **v0.2.2** — Referer-aware font downloads (unblocks foundry CDNs that 403 without a Referer)
 - [x] **v0.3** — Framework emitters: `--emit next` / `tailwind` / `vite`
 - [x] **v0.4** — License heuristic + `LICENSE_REVIEW.md` + fail-fast on all-commercial sites (`--force` to bypass)
 - [x] **v0.6** — Provenance grouping: output split into `google/` / `adobe-typekit/` / `commercial/` / `open-cdn/` / `self-hosted/`
-- [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.md#v10--monorepo-restructure--shipped): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
-- [x] **v1.2** — [Inspect + subset + fallback release](./docs/roadmap.md#v12--flagship-inspect--subset--fallback-release--shipped-2026-05-28): `fontfetch inspect` (terminal Wakamai Fondue), `--fallback` (zero-CLS `@font-face` blocks via capsize), `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset, no Python). Plus `font-display: swap` default and preload-hint header on every emitted `fonts.css`.
-- [x] **v1.2.1** — [Discovery + empty-state quick wins](./docs/roadmap.md#v121--discovery--empty-state-quick-wins--shipped): variable-font hint after pull, Next.js subset sibling probe, `--pages <N>` multi-page crawl, focused 0-declaration output.
-- [x] **v1.3** — [Modern emit + whitelist + per-language split](./docs/roadmap.md#v13--shipped-2026-05-28): `--formats=woff2` modern-only emit, `subset --whitelist=U+00A0,…` extra codepoints, `subset --split-ranges` Google-Fonts-style per-language woff2 + chained `fonts.subset.css` with `unicode-range:` declarations.
-- [x] **v1.3.1** — [Signal quality](./docs/roadmap.md#v131--signal-quality--shipped-2026-05-29): `--fallback` reads `post.isFixedPitch` (catches Operator / PragmataPro / Berkeley Mono); license classifier cross-references the binary's `name` table (ids 13 + 14); `LICENSE_REVIEW.md` calls out OFL Reserved Font Name families.
-- [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.md#v05--hosted-webapp): URL → live progress → foundry-style previews → compare + pairing
+- [x] **v1.0** — [pnpm-workspaces monorepo restructure](./docs/roadmap.html#v10): `@fontfetch/core` + the CLI, with `apps/` slots reserved for the webapp and headless worker
+- [x] **v1.2** — [Inspect + subset + fallback release](./docs/roadmap.html#v12): `fontfetch inspect` (terminal Wakamai Fondue), `--fallback` (zero-CLS `@font-face` blocks via capsize), `fontfetch subset` (Playwright DOM scrape + harfbuzzjs subset, no Python). Plus `font-display: swap` default and preload-hint header on every emitted `fonts.css`.
+- [x] **v1.2.1** — [Discovery + empty-state quick wins](./docs/roadmap.html#v121): variable-font hint after pull, Next.js subset sibling probe, `--pages <N>` multi-page crawl, focused 0-declaration output.
+- [x] **v1.3** — [Modern emit + whitelist + per-language split](./docs/roadmap.html#v13): `--formats=woff2` modern-only emit, `subset --whitelist=U+00A0,…` extra codepoints, `subset --split-ranges` Google-Fonts-style per-language woff2 + chained `fonts.subset.css` with `unicode-range:` declarations.
+- [x] **v1.3.1** — [Signal quality](./docs/roadmap.html#v131): `--fallback` reads `post.isFixedPitch` (catches Operator / PragmataPro / Berkeley Mono); license classifier cross-references the binary's `name` table (ids 13 + 14); `LICENSE_REVIEW.md` calls out OFL Reserved Font Name families.
+- [x] **v1.4** — [CI release-gate + distribution channels](./docs/roadmap.html#v14): engine = `fontfetch diff` / `audit` / `budget` + `--emit tokens` + `--gdpr-report` + per-weight Capsize fallback + cross-page `CONSISTENCY.md` + machine-readable `provenance.json` + variable-font collapse hint. Channels = [`@fontfetch/registry`](./packages/registry) typed npm package + [`fontfetch-action`](./extensions/github-action) GitHub Action + [Raycast extension](./extensions/raycast) + [Homebrew tap](./extensions/homebrew).
+- [ ] **v1.5** — [Prototype-grade font morphing](./docs/roadmap.html#v15): `fontfetch morph <file> --round --width --slant --weight --rename`. Pre-commission sketchbook for designers — four sliders, real binary out, OFL-rename-enforced. Webapp `/edit/[id]` with live preview + share-to-client links lands in v1.6; community preset library in v1.7.
+- [ ] **v0.5** — [Hosted webapp at `fontfetch.dev`](./docs/roadmap.html#v05): URL → live progress → foundry-style previews → compare + pairing
 
 Want one of these sooner? Open an issue or vote on existing ones.
 

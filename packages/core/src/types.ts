@@ -27,7 +27,7 @@ export interface PullOptions {
   baseDir: string;
   headless?: boolean;
   /** Framework targets to emit alongside the default css output. */
-  emit?: ('next' | 'tailwind' | 'vite')[];
+  emit?: ('next' | 'tailwind' | 'vite' | 'tokens')[];
   /**
    * Skip the fail-fast check that aborts when every detected font URL points
    * at a known commercial-foundry CDN. Useful when the user knows what they're
@@ -70,6 +70,13 @@ export interface PullOptions {
    * — closes the v1.2 gap surfaced by glyphhanger #8.
    */
   formats?: FontFormat[];
+  /**
+   * v1.4: emit a `GDPR.md` privacy review file alongside the standard
+   * outputs. Lists every third-party font request with a one-line
+   * self-hosting remediation per family. Driven by the post-LG München I
+   * 20 O 1393/21 (2022) German court ruling on Google Fonts CDN.
+   */
+  gdprReport?: boolean;
 }
 
 /**
@@ -115,6 +122,36 @@ export interface PullResult {
   pagesCrawled: number;
   /** URLs discovered via the Next.js subset sibling probe. */
   discoveredNextjsSiblings: string[];
+  /**
+   * v1.4: cross-page consistency report. Present only when more than one page
+   * was crawled (`pages > 1`). Lists shared families, per-page family sets,
+   * and divergent pages.
+   */
+  consistency?: {
+    shared: string[];
+    perPage: { url: string; families: string[] }[];
+    divergent: { url: string; onlyHere: string[]; missingHere: string[] }[];
+  };
+  /**
+   * v1.4: per-file size map keyed by the local file name (relative to
+   * `files/`). Populated as downloads succeed. Consumed by audit/budget
+   * subcommands and the provenance.json emitter.
+   */
+  fileSizes?: Record<string, number>;
+  /**
+   * v1.4: families that ship both a variable font and 2+ static weight
+   * files. Dropping the statics in favour of the variable saves bundle
+   * size with no visual loss. Populated when at least one opportunity
+   * exists; empty array otherwise.
+   */
+  collapseOpportunities?: Array<{
+    family: string;
+    variableFile: string;
+    variableBytes: number;
+    staticBytes: number;
+    savedBytes: number;
+    staticFiles: Array<{ file: string; bytes: number; weight: string; style: string }>;
+  }>;
 }
 
 export interface CssSource {

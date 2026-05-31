@@ -16,9 +16,9 @@ export interface EmitOutput {
 
 export type Emitter = (faces: FontFace[], context: EmitContext) => EmitOutput | null;
 
-export type EmitTarget = 'css' | 'next' | 'tailwind' | 'vite';
+export type EmitTarget = 'css' | 'next' | 'tailwind' | 'vite' | 'tokens';
 
-export const EMIT_TARGETS: EmitTarget[] = ['css', 'next', 'tailwind', 'vite'];
+export const EMIT_TARGETS: EmitTarget[] = ['css', 'next', 'tailwind', 'vite', 'tokens'];
 
 export function isEmitTarget(s: string): s is EmitTarget {
   return (EMIT_TARGETS as string[]).includes(s);

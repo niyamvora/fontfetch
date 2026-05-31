@@ -73,7 +73,7 @@ Per-package: `pnpm --filter <name> <script>` (e.g.
 
 ## What we're looking for
 
-The [roadmap](./docs/roadmap.md) is the priority list.
+The [roadmap](./docs/roadmap.html) is the priority list.
 
 ## What we'd rather not merge
 

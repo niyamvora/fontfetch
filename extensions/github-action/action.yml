@@ -1,0 +1,47 @@
+name: 'fontfetch'
+description: 'Audit a URL’s @font-face declarations on every PR. Comments with bundle size, commercial-font alerts, and OFL alternatives from the fontfetch pairings registry.'
+author: 'niyamvora'
+branding:
+  icon: 'type'
+  color: 'orange'
+
+inputs:
+  url:
+    description: 'URL to audit (the preview deployment, staging, or live URL).'
+    required: true
+  max-kb:
+    description: 'Fail the action when the total font bundle exceeds this many KB.'
+    required: false
+  per-family-kb:
+    description: 'Per-family budget map: "Inter:30,Geist:40".'
+    required: false
+  no-commercial:
+    description: 'Fail the action when any face is classified as commercial.'
+    required: false
+    default: 'false'
+  comment:
+    description: 'Post the audit summary as a PR comment when a token is available.'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token to post the PR comment. Defaults to the workflow’s GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  fontfetch-version:
+    description: 'fontfetch version to run. Defaults to the latest published.'
+    required: false
+    default: 'latest'
+
+outputs:
+  passed:
+    description: 'true if every audit rule passed.'
+  total-kb:
+    description: 'Total bundle size in KB.'
+  families:
+    description: 'Comma-separated families detected.'
+  report-json:
+    description: 'Raw AuditReport JSON.'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

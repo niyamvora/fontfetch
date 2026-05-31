@@ -155,6 +155,137 @@ export function buildReadme(
 }
 
 /**
+ * Emits a machine-readable `provenance.json` per pull. Same source data as
+ * `LICENSE_REVIEW.md` (the v1.3.1-refined classifications + the v0.6
+ * provenance buckets), but structured for consumption by CI tools, the
+ * `fontfetch-action` GitHub Action, design-system docs sites, and other
+ * automation.
+ *
+ * Shape is stable from v1.4.0 onward — new fields are additive; existing
+ * fields never change shape without a major bump.
+ */
+export interface ProvenanceFileEntry {
+  /** Path relative to the pull's output directory, e.g. "files/google/Inter-Variable.woff2". */
+  file: string;
+  /** Provenance bucket: where the file came from. */
+  bucket: 'google' | 'adobe-typekit' | 'commercial' | 'open-cdn' | 'self-hosted';
+  /** Original remote URL (may be a CDN, foundry, or same-origin). */
+  url: string;
+  /** Format detected from CSS `format(...)` or URL extension. */
+  format: string | null;
+  /** Size in bytes when the file is on disk. `null` if download was skipped or failed. */
+  bytes: number | null;
+}
+
+export interface ProvenanceFaceEntry {
+  family: string;
+  weight: string;
+  style: string;
+  unicodeRange: string | null;
+  classification: {
+    status: 'open' | 'commercial' | 'unknown';
+    reason: string;
+    hasRFN?: boolean;
+  };
+  files: ProvenanceFileEntry[];
+}
+
+export interface ProvenanceReport {
+  schemaVersion: '1.0';
+  generatedAt: string;
+  host: string;
+  sourceUrl: string;
+  summary: {
+    families: number;
+    faces: number;
+    files: number;
+    bytes: number;
+    byStatus: { open: number; commercial: number; unknown: number };
+    byBucket: Record<string, number>;
+    familiesWithRFN: string[];
+  };
+  faces: ProvenanceFaceEntry[];
+  orphans: { url: string; file: string; bytes: number | null }[];
+}
+
+export function buildProvenanceJson(
+  host: string,
+  sourceUrl: string,
+  classified: ClassifiedFace[],
+  orphans: OrphanFile[],
+  fileSizes: Map<string, number>,
+): string {
+  const faces: ProvenanceFaceEntry[] = classified.map((c) => ({
+    family: c.face.family,
+    weight: c.face.weight,
+    style: c.face.style,
+    unicodeRange: c.face.unicodeRange,
+    classification: {
+      status: c.classification.status,
+      reason: c.classification.reason,
+      ...(c.classification.hasRFN ? { hasRFN: true } : {}),
+    },
+    files: c.face.sources
+      .filter((s): s is typeof s & { localFile: string } => Boolean(s.localFile))
+      .map((s) => {
+        const filePath = `files/${s.localFile}`;
+        const bucket = (s.localFile.includes('/')
+          ? s.localFile.split('/')[0]
+          : 'self-hosted') as ProvenanceFileEntry['bucket'];
+        return {
+          file: filePath,
+          bucket,
+          url: s.url,
+          format: s.format,
+          bytes: fileSizes.get(s.localFile) ?? null,
+        };
+      }),
+  }));
+
+  const familiesWithRFN = [
+    ...new Set(classified.filter((c) => c.classification.hasRFN).map((c) => c.face.family)),
+  ];
+
+  const byStatus = { open: 0, commercial: 0, unknown: 0 };
+  for (const c of classified) byStatus[c.classification.status]++;
+
+  const byBucket: Record<string, number> = {};
+  let totalBytes = 0;
+  let totalFiles = 0;
+  for (const f of faces) {
+    for (const file of f.files) {
+      byBucket[file.bucket] = (byBucket[file.bucket] ?? 0) + 1;
+      totalFiles++;
+      if (file.bytes) totalBytes += file.bytes;
+    }
+  }
+
+  const report: ProvenanceReport = {
+    schemaVersion: '1.0',
+    generatedAt: new Date().toISOString(),
+    host,
+    sourceUrl,
+    summary: {
+      families: new Set(classified.map((c) => c.face.family)).size,
+      faces: classified.length,
+      files: totalFiles,
+      bytes: totalBytes,
+      byStatus,
+      byBucket,
+      familiesWithRFN,
+    },
+    faces,
+    orphans: orphans.map((o) => ({
+      url: o.url,
+      file: `files/${o.file}`,
+      bytes: fileSizes.get(o.file) ?? null,
+    })),
+  };
+
+  return JSON.stringify(report, null, 2);
+}
+
+/**
  * Emits LICENSE_REVIEW.md — a heuristic summary of which fonts on the site
  * are open/self-hostable, which are commercial (don't ship without a license),
  * and which couldn't be confidently classified.

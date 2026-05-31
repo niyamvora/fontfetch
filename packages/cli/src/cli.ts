@@ -10,11 +10,15 @@ import {
   isFontFormat,
   parseUnicodeRange,
   GOOGLE_FONTS_RANGES,
+  diffPulls,
+  formatFontDiff,
+  audit,
+  formatAuditReport,
   type EmitTarget,
   type FontFormat,
 } from '@fontfetch/core';
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}
@@ -23,6 +27,9 @@ Usage:
   fontfetch <url> [outDir] [flags]       Extract every webfont from a URL
   fontfetch inspect <file>               Print a terminal report for a font file
   fontfetch subset <url> [outDir]        Extract + subset to glyphs actually rendered on the page
+  fontfetch diff <urlA> <urlB>           Diff the font set between two URLs (v1.4)
+  fontfetch audit <url> [flags]          CI-friendly checks: budget, no-commercial (v1.4, non-zero exit on fail)
+  fontfetch budget <url> --max-kb N      Convenience around audit for the bundle-size dimension (v1.4)
 
 Arguments (default command):
   <url>             Page to download fonts from (https://example.com)
@@ -50,6 +57,11 @@ Flags (default command):
                       --emit tailwind        Tailwind fontFamily snippet
                       --emit next,tailwind   Both (pair for CSS variables)
                       --emit vite            Vite integration guide
+                      --emit tokens          W3C / Style Dictionary design tokens (v1.4)
+  --gdpr-report     Emit GDPR.md + gdpr.json listing every third-party font
+                    request with self-host remediation. Post-LG München I
+                    20 O 1393/21 (2022) German court ruling on Google Fonts
+                    CDN. (v1.4)
   --fallback        Emit a CLS-killing 'Fallback' @font-face for every family,
                     with size-adjust / ascent-override / descent-override /
                     line-gap-override matched to a system fallback (Arial /
@@ -95,6 +107,19 @@ Examples:
   fontfetch subset https://stripe.com --split-ranges=latin,latin-ext
   npx fontfetch https://shinobidata.com
 
+Flags (audit / budget subcommand, v1.4):
+  --max-kb <N>      Total bundle size budget in KB; exceeds → exit 1
+  --per-family-kb <list>
+                    Per-family budgets: "Inter:30,Geist:40"
+  --no-commercial   Exit 1 if any face is classified as commercial
+  --json            Emit machine-readable JSON instead of human-readable output
+
+Examples (v1.4):
+  fontfetch diff https://staging.acme.com https://acme.com
+  fontfetch diff https://staging.acme.com https://acme.com --json
+  fontfetch audit https://acme.com --max-kb 200 --no-commercial
+  fontfetch budget https://acme.com --max-kb 100 --json
+
 Output (per site):
   <outDir>/<hostname>/
     files/          Raw font files (woff2/woff/ttf/otf/eot)
@@ -103,6 +128,9 @@ Output (per site):
     fonts.json      Manifest grouped by family/weight/style
     README.md       Human-readable summary
     LICENSE_REVIEW.md  Per-face license verdict (open / commercial / unknown)
+    provenance.json    Machine-readable license + provenance report (v1.4)
+    CONSISTENCY.md     Cross-page font consistency (when --pages > 1, v1.4)
+    fonts.tokens.json  W3C design tokens (when --emit tokens, v1.4)
 
 For local design exploration. You're responsible for licensing the fonts you use.
 `);
@@ -212,6 +240,7 @@ async function runPull(args: string[]): Promise<void> {
   const headless = args.includes('--headless');
   const force = args.includes('--force');
   const fallback = args.includes('--fallback');
+  const gdprReport = args.includes('--gdpr-report');
 
   // --emit <targets> may be either separated by space or '=' (e.g. --emit=next,tailwind)
   const emit: Exclude<EmitTarget, 'css'>[] = [];
@@ -289,6 +318,7 @@ async function runPull(args: string[]): Promise<void> {
     '--fallback',
     '--pages',
     '--formats',
+    '--gdpr-report',
   ]);
   const positional = args.filter((a: string, i: number) => {
     if (a.startsWith('--')) return false;
@@ -324,6 +354,7 @@ async function runPull(args: string[]): Promise<void> {
     fallback,
     pages,
     formats,
+    gdprReport,
   });
 
   log.info('');
@@ -332,6 +363,138 @@ async function runPull(args: string[]): Promise<void> {
     process.exit(0);
   }
   log.info(`Done. ${result.downloaded}/${result.total} files saved to ${result.outDir}`);
+}
+
+/**
+ * v1.4 — `fontfetch diff <url1> <url2>`. Runs `pull()` on two URLs and prints
+ * a structured diff of their @font-face declarations. `--json` switches to
+ * machine-readable output for CI / the upcoming GH Action.
+ */
+async function runDiff(args: string[]): Promise<void> {
+  const wantJson = args.includes('--json');
+  const positional = args.filter((a) => !a.startsWith('--'));
+  const [urlA, urlB, outDir = './downloaded-fonts'] = positional;
+  if (!urlA || !urlB) {
+    log.err('Usage: fontfetch diff <urlA> <urlB> [outDir] [--json]');
+    process.exit(1);
+  }
+  try {
+    new URL(urlA);
+    new URL(urlB);
+  } catch {
+    log.err(`Invalid URL passed to diff`);
+    process.exit(1);
+  }
+  try {
+    const diff = await diffPulls(urlA, urlB, outDir);
+    if (wantJson) {
+      process.stdout.write(JSON.stringify(diff, null, 2) + '\n');
+    } else {
+      log.info('');
+      log.info(formatFontDiff(diff));
+    }
+    process.exit(0);
+  } catch (e) {
+    log.err(`diff failed: ${(e as Error).message}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * v1.4 — `fontfetch audit <url> [--max-kb N] [--no-commercial] [--per-family-kb F:N,...]`.
+ * Drop-in CI command. Exits non-zero when any configured rule is violated.
+ */
+async function runAudit(args: string[]): Promise<void> {
+  const wantJson = args.includes('--json');
+  const noCommercial = args.includes('--no-commercial');
+
+  // --max-kb <N> or --max-kb=N
+  let maxKb: number | undefined;
+  const maxKbIdx = args.findIndex((a) => a === '--max-kb' || a.startsWith('--max-kb='));
+  if (maxKbIdx !== -1) {
+    const raw =
+      args[maxKbIdx] === '--max-kb'
+        ? args[maxKbIdx + 1]
+        : args[maxKbIdx].slice('--max-kb='.length);
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n) || n <= 0) {
+      log.err(`--max-kb must be a positive integer, got '${raw}'`);
+      process.exit(1);
+    }
+    maxKb = n;
+  }
+
+  // --per-family-kb Inter:30,Geist:40
+  let perFamilyKb: Record<string, number> | undefined;
+  const pfIdx = args.findIndex(
+    (a) => a === '--per-family-kb' || a.startsWith('--per-family-kb='),
+  );
+  if (pfIdx !== -1) {
+    const raw =
+      args[pfIdx] === '--per-family-kb'
+        ? args[pfIdx + 1]
+        : args[pfIdx].slice('--per-family-kb='.length);
+    perFamilyKb = {};
+    for (const part of raw.split(',')) {
+      const [family, kb] = part.split(':');
+      if (!family || !kb) {
+        log.err(`--per-family-kb expects 'Family:KB' pairs; got '${part}'`);
+        process.exit(1);
+      }
+      const n = Number.parseInt(kb, 10);
+      if (!Number.isFinite(n) || n <= 0) {
+        log.err(`--per-family-kb value must be positive integer; got '${kb}'`);
+        process.exit(1);
+      }
+      perFamilyKb[family.trim()] = n;
+    }
+  }
+
+  const reserved = new Set(['--json', '--no-commercial', '--max-kb', '--per-family-kb']);
+  const positional = args.filter((a, i) => {
+    if (a.startsWith('--')) return false;
+    if (i > 0 && (args[i - 1] === '--max-kb' || args[i - 1] === '--per-family-kb')) return false;
+    if (reserved.has(a)) return false;
+    return true;
+  });
+  const [url, outDir = './downloaded-fonts'] = positional;
+  if (!url) {
+    log.err('Usage: fontfetch audit <url> [outDir] [--max-kb N] [--no-commercial] [--per-family-kb F:N,...] [--json]');
+    process.exit(1);
+  }
+  try {
+    new URL(url);
+  } catch {
+    log.err(`Invalid URL: ${url}`);
+    process.exit(1);
+  }
+
+  try {
+    const report = await audit(url, outDir, { maxKb, perFamilyKb, noCommercial });
+    if (wantJson) {
+      process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+    } else {
+      log.info('');
+      log.info(formatAuditReport(report));
+    }
+    process.exit(report.passed ? 0 : 1);
+  } catch (e) {
+    log.err(`audit failed: ${(e as Error).message}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * v1.4 — `fontfetch budget <url> --max-kb N`. Convenience subcommand around
+ * `audit` that only configures the total bundle budget. `--json` for CI.
+ */
+async function runBudget(args: string[]): Promise<void> {
+  // Budget is just audit with the size dimension. Reuse runAudit.
+  if (!args.some((a) => a === '--max-kb' || a.startsWith('--max-kb='))) {
+    log.err('Usage: fontfetch budget <url> --max-kb <N> [outDir] [--json]');
+    process.exit(1);
+  }
+  await runAudit(args);
 }
 
 async function main(): Promise<void> {
@@ -354,6 +517,18 @@ async function main(): Promise<void> {
   }
   if (command === 'subset') {
     await runSubset(rest);
+    return;
+  }
+  if (command === 'diff') {
+    await runDiff(rest);
+    return;
+  }
+  if (command === 'audit') {
+    await runAudit(rest);
+    return;
+  }
+  if (command === 'budget') {
+    await runBudget(rest);
     return;
   }
 

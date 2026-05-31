@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { extractStylesheetLinks, extractInlineStyles, extractFontFaces } from '../parse/parse.js';
-import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints } from '../emit/emit.js';
+import { buildFontsCss, buildFontsJson, buildReadme, buildLicenseReview, buildPreloadHints, buildProvenanceJson } from '../emit/emit.js';
+import { buildGdprReport, formatGdprMarkdown } from '../emit/gdpr.js';
 import { classifyFaces, summarize } from '../license/license.js';
 import { crossRefLicenseFromBinaries } from '../license/binary-license.js';
 import { fetchText, fetchBuffer, siteSlug, safeFilename, log } from '../lib/utils.js';
@@ -11,10 +12,12 @@ import { abs } from '../lib/utils.js';
 import { fetchHeadless } from '../headless.js';
 import { EMITTERS } from '../emit/emitters/index.js';
 import { bucketForUrl } from '../license/provenance.js';
-import { buildFallbacksForDir } from '../inspect/fallback.js';
+import { buildPerFaceFallbacks } from '../inspect/fallback.js';
 import { discoverInternalLinks, CRAWL_PAGE_CAP } from '../parse/crawl.js';
+import { buildPageFaceMap, computeConsistency, buildConsistencyReport } from '../parse/consistency.js';
 import { isNextjsSubsetUrl, probeNextjsSiblings } from '../platforms/nextjs.js';
 import { summarizeVariableFonts, formatAxesInline } from '../inspect/inspect.js';
+import { detectCollapseOpportunities, formatCollapseHint } from '../inspect/collapse.js';
 import { filterFacesByFormat, urlMatchesFormat } from '../formats/formats.js';
 
 interface FetchedPage {
@@ -32,6 +35,7 @@ export async function pull({
   fallback = false,
   pages = 1,
   formats,
+  gdprReport = false,
 }: PullOptions): Promise<PullResult> {
   const host = siteSlug(url);
   const outDir = path.join(path.resolve(baseDir), host);
@@ -67,6 +71,10 @@ export async function pull({
 
   onProgress?.({ type: 'phase', phase: 'parse_css' });
   const cssSources: CssSource[] = [];
+  // v1.4: per-source page-of-origin index, parallel to cssSources. Used to
+  // attribute faces back to the page they came from for CONSISTENCY.md.
+  // Sources from headless mode get pageIdx = 0 (entry page).
+  const sourceToPage: number[] = [];
   const cssLinkSet = new Set<string>();
   const perPage: { page: FetchedPage; uniqueLinks: string[]; inline: string[] }[] = [];
   let totalInline = 0;
@@ -84,12 +92,17 @@ export async function pull({
   }
   log.info(`  ${cssLinkSet.size} external stylesheet(s), ${totalInline} inline <style> block(s)`);
 
-  for (const { page, uniqueLinks, inline } of perPage) {
-    for (const text of inline) cssSources.push({ text, base: page.url });
+  for (let pageIdx = 0; pageIdx < perPage.length; pageIdx++) {
+    const { page, uniqueLinks, inline } = perPage[pageIdx];
+    for (const text of inline) {
+      cssSources.push({ text, base: page.url });
+      sourceToPage.push(pageIdx);
+    }
     for (const link of uniqueLinks) {
       try {
         log.info(`→ Fetching CSS: ${link}`);
         cssSources.push({ text: await fetchText(link, { Referer: page.url }), base: link });
+        sourceToPage.push(pageIdx);
         onProgress?.({ type: 'css_fetched', url: link });
       } catch (e) {
         const reason = (e as Error).message;
@@ -104,7 +117,12 @@ export async function pull({
     log.info('→ Running headless mode (Playwright)...');
     try {
       const result = await fetchHeadless(url);
-      cssSources.push(...result.cssSources);
+      for (const src of result.cssSources) {
+        cssSources.push(src);
+        // Headless sources are attributed to the entry page (pageIdx 0) for
+        // consistency reporting — the headless pass only runs on the entry URL.
+        sourceToPage.push(0);
+      }
       networkFontUrls = result.networkFontUrls;
       log.info(`  + ${result.cssSources.length} stylesheet block(s) from headless`);
       if (networkFontUrls.length > 0) {
@@ -116,7 +134,10 @@ export async function pull({
     }
   }
 
-  const allFaces = cssSources.flatMap(({ text, base }) => extractFontFaces(text, base));
+  // v1.4: extract per-source so we can attribute faces back to their page-of-origin
+  // for the cross-page consistency report. Flatten right after.
+  const facesPerSource = cssSources.map(({ text, base }) => extractFontFaces(text, base));
+  const allFaces = facesPerSource.flat();
   // Dedupe across static + headless sources (same rule can appear in both).
   const seen = new Set<string>();
   const dedupedFaces = allFaces.filter((f) => {
@@ -306,6 +327,7 @@ export async function pull({
   let downloaded = 0;
   let index = 0;
   const createdBuckets = new Set<string>();
+  const fileSizes = new Map<string, number>();
   for (const [fontUrl, name] of urlToLocal) {
     index++;
     const dest = path.join(filesDir, name);
@@ -317,6 +339,7 @@ export async function pull({
     try {
       const buf = await fetchBuffer(fontUrl, { Referer: url });
       await fs.writeFile(dest, buf);
+      fileSizes.set(name, buf.length);
       log.info(`  ✓ ${name}  (${buf.length.toLocaleString()} bytes)`);
       const bucket = name.includes('/') ? name.split('/')[0] : 'self-hosted';
       onProgress?.({
@@ -372,13 +395,22 @@ export async function pull({
     onProgress?.({ type: 'variable_fonts', fonts: variableFonts });
   }
 
+  // v1.4: variable-font collapse hint. When a family ships both a variable
+  // binary and 2+ static weight files, the statics are redundant — the
+  // variable already covers them. Surface a one-liner with the byte saving.
+  const collapseOpportunities = detectCollapseOpportunities(variableFonts, faces, fileSizes);
+  if (collapseOpportunities.length > 0) {
+    log.info('  ℹ Variable-font collapse opportunities:');
+    for (const op of collapseOpportunities) log.info(formatCollapseHint(op));
+  }
+
   let fallbackBlocks: string[] = [];
   if (fallback) {
-    log.info('→ Computing CLS-killing fallback metrics (capsize)');
-    const { css, count, errors } = await buildFallbacksForDir(filesDir);
+    log.info('→ Computing CLS-killing fallback metrics (capsize, per weight)');
+    const { css, count, errors } = await buildPerFaceFallbacks(filesDir, faces);
     if (count > 0) {
       fallbackBlocks = [css];
-      log.info(`  + ${count} fallback @font-face block(s) generated`);
+      log.info(`  + ${count} fallback @font-face block(s) generated (one per weight/style)`);
     }
     for (const err of errors) {
       log.warn(`  ! fallback skipped for ${path.basename(err.file)}: ${err.reason}`);
@@ -396,6 +428,55 @@ export async function pull({
     path.join(outDir, 'LICENSE_REVIEW.md'),
     buildLicenseReview(host, refined, refinedSummary),
   );
+  // v1.4: machine-readable counterpart to LICENSE_REVIEW.md + the v0.6
+  // provenance buckets. Consumed by `fontfetch audit`, the GH Action, and
+  // any external CI / design-system tooling.
+  await fs.writeFile(
+    path.join(outDir, 'provenance.json'),
+    buildProvenanceJson(host, url, refined, orphans, fileSizes),
+  );
+  // v1.4: optional GDPR review (--gdpr-report). Surfaces every third-party
+  // font request with self-host remediation. Post-LG München I 20 O 1393/21.
+  if (gdprReport) {
+    const report = buildGdprReport(host, url, faces);
+    await fs.writeFile(path.join(outDir, 'GDPR.md'), formatGdprMarkdown(report));
+    await fs.writeFile(
+      path.join(outDir, 'gdpr.json'),
+      JSON.stringify(report, null, 2),
+    );
+    if (report.summary.highSeverity > 0) {
+      log.info(
+        `→ GDPR review: ${report.summary.thirdParty} third-party request(s), ${report.summary.highSeverity} high-severity — see GDPR.md`,
+      );
+    } else if (report.summary.thirdParty > 0) {
+      log.info(
+        `→ GDPR review: ${report.summary.thirdParty} third-party request(s) — see GDPR.md`,
+      );
+    } else {
+      log.info('→ GDPR review: no third-party font requests detected');
+    }
+  }
+  // v1.4: cross-page consistency report. Only meaningful when --pages > 1;
+  // for a single-page pull every face is on the entry page by definition.
+  let consistencyReport: ReturnType<typeof computeConsistency> | undefined;
+  if (fetchedPages.length > 1) {
+    const pageUrls = fetchedPages.map((p) => p.url);
+    const pageFaceMap = buildPageFaceMap(pageUrls, sourceToPage, facesPerSource);
+    consistencyReport = computeConsistency(pageFaceMap);
+    await fs.writeFile(
+      path.join(outDir, 'CONSISTENCY.md'),
+      buildConsistencyReport(consistencyReport, host),
+    );
+    if (consistencyReport.divergent.length > 0) {
+      log.info(
+        `→ Cross-page consistency: ${consistencyReport.shared.length} shared / ${consistencyReport.divergent.length} divergent page(s) — see CONSISTENCY.md`,
+      );
+    } else {
+      log.info(
+        `→ Cross-page consistency: ${consistencyReport.shared.length} family/families used on every crawled page`,
+      );
+    }
+  }
 
   for (const target of emit) {
     const emitter = EMITTERS[target];
@@ -417,5 +498,8 @@ export async function pull({
     variableFonts,
     pagesCrawled: fetchedPages.length,
     discoveredNextjsSiblings,
+    ...(consistencyReport ? { consistency: consistencyReport } : {}),
+    fileSizes: Object.fromEntries(fileSizes),
+    collapseOpportunities,
   };
 }
