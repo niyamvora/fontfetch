@@ -1,0 +1,103 @@
+name: release-registry
+
+# Manual-only publisher for the `@fontfetch/registry` npm package. Separate
+# from `release.yml` (which ships the `fontfetch` CLI) because the registry
+# has an independent publish lifecycle — it only needs a new release when the
+# pairings data or the typed consumer API changes, not on every CLI bump.
+#
+# Fire from the Actions tab (or `gh workflow run release-registry.yml`) once a
+# version bump has landed on `main`. The workflow reads the version from
+# `packages/registry/package.json`, builds (bakes pairings → typed module +
+# dist/pairings.json), and publishes to npm. Use `dry_run: true` for a no-op
+# trial that stops short of `npm publish`.
+#
+# Authentication: npm Trusted Publishing (OIDC). No long-lived token in the
+# repo. GitHub Actions presents an OIDC identity to npm at publish time; npm
+# validates it matches the Trusted Publisher configured for the
+# `@fontfetch/registry` package (`niyamvora/fontfetch`, workflow
+# `release-registry.yml`, action `npm publish`) and issues a short-lived
+# publish credential.
+#
+# ONE-TIME MAINTAINER SETUP (required before the first successful run):
+#   1. The `@fontfetch` scope must exist on npm and be owned by the
+#      publishing account/org. Create it at npmjs.com → Add Organization /
+#      claim the scope if it is still available.
+#   2. Configure a Trusted Publisher for `@fontfetch/registry` pointing at
+#      this repo + this workflow file + the `npm publish` action.
+#      Docs: https://docs.npmjs.com/trusted-publishers
+#   For the very first publish of a brand-new scoped package, if Trusted
+#   Publishing cannot bootstrap the package record, do one manual
+#   `npm publish --access public` from a logged-in maintainer machine, then
+#   let CI own every subsequent release.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (build + dry-publish, no npm publish, no tag, no release)"
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      # Trusted publishing requires npm >= 11.5.1; the npm bundled with
+      # Node 20 is older. Pin a known-good npm for the publish steps.
+      - name: Pin npm@latest (>= 11.5.1 needed for Trusted Publishing)
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm -v)"
+
+      - name: Resolve registry version
+        id: ver
+        run: |
+          version=$(node -p "require('./packages/registry/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Will publish @fontfetch/registry@$version"
+
+      - name: Abort if version already on npm
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          if npm view "@fontfetch/registry@${{ steps.ver.outputs.version }}" version > /dev/null 2>&1; then
+            echo "::error::@fontfetch/registry@${{ steps.ver.outputs.version }} is already on npm. Bump the version in packages/registry/package.json before re-running."
+            exit 1
+          fi
+          echo "@fontfetch/registry@${{ steps.ver.outputs.version }} is not yet on npm — proceeding."
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @fontfetch/registry run typecheck
+
+      - run: pnpm --filter @fontfetch/registry run test
+
+      - run: pnpm --filter @fontfetch/registry run build
+
+      - name: Show what would publish (npm dry-run)
+        working-directory: packages/registry
+        run: npm publish --dry-run --provenance --access public
+
+      - name: Publish to npm (Trusted Publishing)
+        if: ${{ inputs.dry_run == false }}
+        working-directory: packages/registry
+        run: npm publish --provenance --access public
+
+      - name: Create git tag + GitHub release
+        if: ${{ inputs.dry_run == false }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: registry-v${{ steps.ver.outputs.version }}
+          name: "@fontfetch/registry v${{ steps.ver.outputs.version }}"
+          generate_release_notes: true

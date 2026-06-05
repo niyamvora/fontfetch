@@ -13,6 +13,10 @@
     "./pairings.json": "./dist/pairings.json"
   },
   "files": ["dist"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "node scripts/bake-pairings.mjs && tsup",
     "dev": "tsup --watch",
