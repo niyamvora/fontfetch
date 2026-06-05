@@ -9,6 +9,13 @@
 export { morph } from './morph.js';
 export { loadFont, saveFont, readGlyphCommands, writeGlyphCommands, glyphCount } from './io.js';
 export { widthTransform, slantTransform, roundTransform, weightTransform } from './transforms/index.js';
+export { renameFamily, applyWatermark, watermarkText, readFamily, readVendor } from './naming.js';
+export {
+  resolvePosture,
+  decideMorphPolicy,
+  checkBlocklist,
+  morphBlocklist,
+} from './posture.js';
 
 export type {
   MorphOptions,
@@ -17,3 +24,10 @@ export type {
   PathCommand,
   GlyphTransform,
 } from './types.js';
+export type {
+  MorphPosture,
+  MorphPolicy,
+  MorphClassification,
+  FontLicenseSignal,
+  FoundrySignature,
+} from './posture.js';

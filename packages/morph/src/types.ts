@@ -28,10 +28,19 @@ export interface MorphOptions {
   slant?: number;
   /** Stroke weight delta, −20…+20 (%). Static-font path is experimental. */
   weight?: number;
+  /** Rename the font family in the output binary (OFL RFN / mockup identity). */
+  rename?: string;
+  /** Embed this watermark string into the output's name table (commercial inputs). */
+  watermark?: string;
 }
 
-/** The options actually applied after clamping to the supported ranges. */
-export type AppliedMorph = Required<MorphOptions>;
+/** The four slider values actually applied, after clamping. */
+export interface AppliedMorph {
+  round: number;
+  width: number;
+  slant: number;
+  weight: number;
+}
 
 /** Result of a {@link morph} run. */
 export interface MorphResult {
@@ -39,6 +48,10 @@ export interface MorphResult {
   font: Uint8Array;
   /** The clamped slider values that were applied. */
   applied: AppliedMorph;
+  /** The family name written to the output, when a rename was applied. */
+  renamedTo?: string;
+  /** True when a watermark was embedded in the output's name table. */
+  watermarked: boolean;
   /** Non-fatal advisories (e.g. experimental static-weight, clamped input). */
   warnings: string[];
 }

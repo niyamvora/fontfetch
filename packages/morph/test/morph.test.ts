@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { morph } from '../src/morph.js';
 import { loadFont, readGlyphCommands } from '../src/io.js';
+import { readFamily } from '../src/naming.js';
 import { makeTestFont } from './helpers.js';
 
 function rightExtentOfA(binary: Uint8Array): number {
@@ -58,5 +59,22 @@ describe('morph end-to-end', () => {
     const { font, applied } = morph(makeTestFont(), { width: 110, slant: 8, round: 40 });
     expect(applied).toMatchObject({ width: 110, slant: 8, round: 40, weight: 0 });
     expect(loadFont(font).glyphs.length).toBe(2);
+  });
+
+  it('applies rename and watermark in the same pass', () => {
+    const { font, renamedTo, watermarked } = morph(makeTestFont(), {
+      slant: 6,
+      rename: 'Test Prototype',
+      watermark: 'PROTOTYPE — not for production',
+    });
+    expect(renamedTo).toBe('Test Prototype');
+    expect(watermarked).toBe(true);
+    expect(readFamily(loadFont(font))).toBe('Test Prototype');
+  });
+
+  it('renames even with no slider transforms', () => {
+    const { font, applied } = morph(makeTestFont(), { rename: 'Just Renamed' });
+    expect(applied).toMatchObject({ round: 0, width: 100, slant: 0, weight: 0 });
+    expect(readFamily(loadFont(font))).toBe('Just Renamed');
   });
 });

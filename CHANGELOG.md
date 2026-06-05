@@ -6,6 +6,42 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-06-06
+
+The **font morphing** release — the first feature that gives fontfetch a moat its CLI competitors can't reach. Tag line: *"extract any font, then sketch on it — round it, widen it, slant it, thicken it, export a real binary."* Built for **pre-commission ideation**: the typography sketchbook that comes *before* commissioning a real typeface, not a replacement for one.
+
+This release ships the morph **engine + CLI (Steps 1–6)** and the **interface-first package split (Step 7)**. The webapp morph editor (v1.6) and preset library (v1.7) build on top of it.
+
+### Added — `fontfetch morph <file>`
+
+- **New `morph` subcommand.** Parametric morphing with four sliders:
+  - `--round <N>` — corner radius 0–100% (quadratic fillets on straight-line corners; lossless transforms leave curves untouched)
+  - `--width <N>` — horizontal scale 80–120% (lossless matrix; advance widths track)
+  - `--slant <N>` — slant 0–15° (lossless shear; an honest faux-oblique, not a true italic)
+  - `--weight <N>` — stroke delta −15…+15% (**experimental** on static fonts: winding-aware outline offset, clamped, warned)
+  - `--rename <name>` (default `"<original> Prototype"`), `--out <dir>`, `--json`
+  ```bash
+  fontfetch morph ./Inter.ttf --round=20 --width=108
+  fontfetch morph ./Geist.otf --slant=8 --rename "Geist Sketch"
+  ```
+  Accepts TTF / OTF / WOFF (WOFF2 input is decompress-first for now — wiring is a later step).
+
+### Added — licensing posture (the gate, not a footnote)
+
+- **"Allow all, warn per font" posture, shipped with the strict path built in.** The input is classified from its binary's name-table license:
+  - **OFL** fonts get the clean path. A Reserved Font Name (RFN) forces a rename, per the license.
+  - **Commercial / unknown** inputs are allowed but **warned about, watermarked in the binary's name table, renamed, and written as a `MOCKUP_` bundle with a `MOCKUP_DISCLAIMER.md`** — prototype use only.
+- **`FONTFETCH_MORPH_POSTURE=ofl-only`** flips to refusing any non-OFL input entirely. The strict code path exists from day one, so the flip is config, not a refactor.
+- **`morphBlocklist`** (empty by default) supports per-foundry hard blocks with the same signature shape as core's CDN lists.
+
+### Added — `@fontfetch/morph` package
+
+- New workspace package with the engine: `morph()`, the four transforms, `loadFont`/`saveFont` (opentype.js round-trip — fontkit, used elsewhere in fontfetch, is read-only), and the posture/naming helpers (`decideMorphPolicy`, `renameFamily`, `applyWatermark`). 36 vitest cases; smoke-tested on real multi-thousand-glyph fonts. Bundled into the published `fontfetch` CLI so npm users need no extra install.
+
+### Changed — v1.5.x package split (interface-first)
+
+- New `@fontfetch/inspect`, `@fontfetch/subset`, and `@fontfetch/fallback` packages establish the public import boundary for third-party reuse, backed by `@fontfetch/core` today. The physical relocation of the implementations out of core is deferred — importers can depend on the new packages now and survive the later move unchanged.
+
 ## [1.4.0] — 2026-05-29
 
 The "distribution surface + competitor-gap closeouts" release. **Eight features ship in one minor — the four engine closeouts plus the four distribution channels.** Tag line: *"fontfetch 1.4: extract → audit → ship. With every page, every weight, every font signal you didn't know you needed — and now everywhere you already work."*

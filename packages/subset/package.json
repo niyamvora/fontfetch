@@ -1,0 +1,38 @@
+{
+  "name": "@fontfetch/subset",
+  "version": "1.5.0",
+  "private": true,
+  "description": "DOM-driven font subsetting and Google-Fonts-style per-language splitting from arbitrary URLs. Part of the fontfetch open-core toolkit.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@fontfetch/core": "workspace:*"
+  },
+  "author": "Niyam Vora <niyamvora@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niyamvora/fontfetch.git",
+    "directory": "packages/subset"
+  }
+}

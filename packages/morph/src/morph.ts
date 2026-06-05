@@ -8,6 +8,7 @@
  */
 import { loadFont, saveFont, readGlyphCommands, writeGlyphCommands } from './io.js';
 import { widthTransform, slantTransform, roundTransform, weightTransform } from './transforms/index.js';
+import { renameFamily, applyWatermark } from './naming.js';
 import type { AppliedMorph, GlyphTransform, MorphOptions, MorphResult } from './types.js';
 
 const RANGES = {
@@ -65,7 +66,19 @@ export function morph(data: Uint8Array | ArrayBuffer, opts: MorphOptions = {}): 
     }
   }
 
-  return { font: saveFont(font), applied, warnings };
+  // Identity changes apply within the same load/save cycle so the binary is
+  // serialised once. The license decision lives upstream (see posture.ts); the
+  // engine just stamps what it's told.
+  if (opts.rename) renameFamily(font, opts.rename);
+  if (opts.watermark) applyWatermark(font, opts.watermark);
+
+  return {
+    font: saveFont(font),
+    applied,
+    renamedTo: opts.rename,
+    watermarked: Boolean(opts.watermark),
+    warnings,
+  };
 }
 
 function clamp(key: keyof typeof RANGES, value: number | undefined, warnings: string[]): number {

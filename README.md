@@ -97,6 +97,7 @@ fontfetch subset <url> [outDir] [--whitelist <spec>] [--split-ranges[=<buckets>]
 fontfetch diff <urlA> <urlB> [outDir] [--json]                              # v1.4
 fontfetch audit <url> [--max-kb N] [--per-family-kb F:N,...] [--no-commercial] [--json]   # v1.4
 fontfetch budget <url> --max-kb N [outDir] [--json]                         # v1.4
+fontfetch morph <font-file> [--round N] [--width N] [--slant N] [--weight N] [--rename <name>] [--out <dir>] [--json]   # v1.5
 ```
 
 | Arg / Flag | Default | Notes |
@@ -112,6 +113,8 @@ fontfetch budget <url> --max-kb N [outDir] [--json]                         # v1
 | `--force` | off | Bypass the fail-fast check that blocks all-commercial sites |
 | `--whitelist <spec>` (subset) | — | Extra codepoints to always include, on top of the DOM walk. CSS `unicode-range` syntax: `U+00A0,U+20AC,U+0020-007F` (v1.3) |
 | `--split-ranges[=<buckets>]` (subset) | off | Emit one woff2 per Google Fonts language bucket (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`) and a chained `fonts.subset.css` (v1.3) |
+| `--round / --width / --slant / --weight <N>` (morph) | — | Parametric morph sliders: corner radius 0–100%, width 80–120%, slant 0–15°, stroke −15…+15% (v1.5). `--weight` on static fonts is experimental |
+| `--rename <name>` (morph) | `"<original> Prototype"` | Output family name (v1.5) |
 
 Examples:
 
@@ -127,7 +130,24 @@ fontfetch inspect ./downloaded-fonts/example.com/files/google/Inter-Variable.wof
 fontfetch subset https://stripe.com
 fontfetch subset https://stripe.com --whitelist=U+00A0,U+20AC
 fontfetch subset https://stripe.com --split-ranges
+fontfetch morph ./Inter.ttf --round=20 --width=108
+fontfetch morph ./Geist.otf --slant=8 --rename "Geist Sketch"
 ```
+
+### What's new in v1.5 — font morphing
+
+The first feature that gives fontfetch a moat its CLI competitors can't reach. **Extract any font, then sketch on it.** Built for *pre-commission ideation* — a typography sketchbook that comes before commissioning a real typeface, not a replacement for one.
+
+- **`fontfetch morph <file>` — parametric morphing with four sliders.** Round corners, widen/condense, slant (faux-oblique), and thicken/thin the stroke, then export a real binary. Width and slant are lossless matrix transforms; rounding fillets straight-line corners; `--weight` on static fonts is an experimental, clamped outline offset (a variable font's `wght` axis is the lossless path).
+  ```bash
+  fontfetch morph ./Inter.ttf --round=20 --width=108
+  fontfetch morph ./Geist.otf --slant=8 --rename "Geist Sketch"
+  ```
+- **Licensing is the gate, not a footnote.** OFL fonts get the clean path (Reserved Font Names are renamed automatically). Commercial / unknown-license inputs are allowed but **warned about, watermarked in the binary, renamed, and written as a `MOCKUP_` bundle with a disclaimer** — prototype use only. Set `FONTFETCH_MORPH_POSTURE=ofl-only` to refuse anything not self-declared OFL. **Honour the people who make type.**
+- **New `@fontfetch/morph` package** carries the engine, bundled into the CLI so npm users need no extra install.
+- **v1.5.x package split (interface-first):** new `@fontfetch/inspect`, `@fontfetch/subset`, and `@fontfetch/fallback` packages establish the import boundary for third-party reuse, backed by `@fontfetch/core` today.
+
+> WOFF2 input is decompress-first for now (TTF/OTF/WOFF are supported directly). The webapp morph editor (v1.6) and a preset library (v1.7) build on this engine.
 
 ### What's new in v1.4
 

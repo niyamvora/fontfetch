@@ -45,6 +45,12 @@ importers:
       '@fontfetch/core':
         specifier: workspace:*
         version: link:../core
+      '@fontfetch/morph':
+        specifier: workspace:*
+        version: link:../morph
+      opentype.js:
+        specifier: ^2.0.0
+        version: 2.0.0
 
   packages/core:
     dependencies:
@@ -64,6 +70,18 @@ importers:
         specifier: ^2.5.0
         version: 2.5.0
 
+  packages/fallback:
+    dependencies:
+      '@fontfetch/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/inspect:
+    dependencies:
+      '@fontfetch/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/morph:
     dependencies:
       opentype.js:
@@ -75,6 +93,12 @@ importers:
         version: 1.3.10
 
   packages/registry: {}
+
+  packages/subset:
+    dependencies:
+      '@fontfetch/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

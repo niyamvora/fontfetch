@@ -2,9 +2,10 @@ import { defineConfig } from 'tsup';
 
 /**
  * The published `fontfetch` npm package is a single self-contained file: tsup
- * bundles `@fontfetch/core` into `dist/cli.js` via `noExternal`, so npm
- * consumers don't need any workspace machinery. Playwright stays external —
- * it's an optional peer dep loaded dynamically only in --headless mode.
+ * bundles `@fontfetch/core`, `@fontfetch/morph`, and morph's `opentype.js`
+ * dependency into `dist/cli.js` via `noExternal`, so npm consumers don't need
+ * any workspace machinery or extra installs. Playwright stays external — it's
+ * an optional peer dep loaded dynamically only in --headless mode.
  */
 export default defineConfig({
   entry: ['src/cli.ts'],
@@ -16,7 +17,7 @@ export default defineConfig({
   shims: false,
   minify: false,
   external: ['playwright'],
-  noExternal: ['@fontfetch/core'],
+  noExternal: ['@fontfetch/core', '@fontfetch/morph', 'opentype.js'],
   banner: {
     js: '#!/usr/bin/env node',
   },
