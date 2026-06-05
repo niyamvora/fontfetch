@@ -64,6 +64,16 @@ importers:
         specifier: ^2.5.0
         version: 2.5.0
 
+  packages/morph:
+    dependencies:
+      opentype.js:
+        specifier: ^2.0.0
+        version: 2.0.0
+    devDependencies:
+      '@types/opentype.js':
+        specifier: ^1.3.8
+        version: 1.3.10
+
   packages/registry: {}
 
 packages:
@@ -573,6 +583,9 @@ packages:
   '@types/node@22.19.19':
     resolution: {integrity: sha512-dyh/xO2Fh5bYrfWaaqGrRQQGkNdmYw6AmaAUvYeUMNTWQtvb796ikLdmTchRmOlOiIJ1TDXfWgVx1QkUlQ6Hew==}
 
+  '@types/opentype.js@1.3.10':
+    resolution: {integrity: sha512-F67EFyk6j02okHz5JCgata3ZRAcZi9GLnzmkHw/rzJq3OCc8/ZVdoKrxMTYjcQP6IYHGBz2cav1cpzkOkPiPCQ==}
+
   '@types/set-cookie-parser@2.4.10':
     resolution: {integrity: sha512-GGmQVGpQWUe5qglJozEjZV/5dyxbOOZ0LHe/lqyWssB88Y4svNfst0uqBVscdDeIKl5Jy5+aPSvy7mI9tYRguw==}
 
@@ -940,6 +953,10 @@ packages:
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
+
+  opentype.js@2.0.0:
+    resolution: {integrity: sha512-kCyjv6xdDY1W/jLWZ/L3QhhTlKUqDZMQ5+Jdlw12b3dXkKNpYBqqlMMj0YDQPShWFTMwgZI1hG14kN3XUDSg/A==}
+    hasBin: true
 
   outvariant@1.4.3:
     resolution: {integrity: sha512-+Sl2UErvtsoajRDKCE5/dBz4DIvHXQQnAxtQTF04OJxY0+DyZXSo5P5Bb7XYWOh81syohlYL24hbDwxedPUJCA==}
@@ -1595,6 +1612,8 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/opentype.js@1.3.10': {}
+
   '@types/set-cookie-parser@2.4.10':
     dependencies:
       '@types/node': 22.19.19
@@ -1990,6 +2009,8 @@ snapshots:
   nanoid@3.3.12: {}
 
   object-assign@4.1.1: {}
+
+  opentype.js@2.0.0: {}
 
   outvariant@1.4.3:
     optional: true

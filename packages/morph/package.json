@@ -1,0 +1,53 @@
+{
+  "name": "@fontfetch/morph",
+  "version": "1.5.0",
+  "private": true,
+  "description": "Prototyping-grade parametric font morphing for fontfetch — take any font outline and round / widen / slant / thicken it, then write a real binary back out. Built for pre-commission ideation, not production type design.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "opentype.js": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/opentype.js": "^1.3.8"
+  },
+  "keywords": [
+    "font",
+    "fonts",
+    "morph",
+    "typography",
+    "opentype",
+    "variable-fonts",
+    "prototype"
+  ],
+  "author": "Niyam Vora <niyamvora@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niyamvora/fontfetch.git",
+    "directory": "packages/morph"
+  },
+  "bugs": {
+    "url": "https://github.com/niyamvora/fontfetch/issues"
+  },
+  "homepage": "https://github.com/niyamvora/fontfetch/tree/main/packages/morph#readme"
+}
