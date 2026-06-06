@@ -4,7 +4,7 @@ Prototyping-grade parametric font morphing for [fontfetch](https://github.com/ni
 
 Built for **pre-commission ideation**: a typography sketchbook for showing a client "what your wordmark could look like with a slightly rounder, wider, slanted custom face" — *before* commissioning a real type designer. It is **not** a production type-design tool, and it does not replace one.
 
-> **Status:** v1.5 engine (Steps 1–3). The `fontfetch morph` CLI surface, the commercial-font licensing guardrails, and WOFF2 input/output wiring land in subsequent steps. This package is currently workspace-private.
+> **Status:** shipped in v1.5 — engine, the `fontfetch morph` CLI surface, the commercial-font licensing guardrails, and WOFF2 input/output are all live. This package is `private` (not published standalone); it's **bundled into the published `fontfetch` CLI**, so end users install nothing extra. Import it directly only inside the workspace.
 
 ## API
 
@@ -38,10 +38,10 @@ You can also import the individual transforms (`widthTransform`, `slantTransform
 
 ## Input / output
 
-Accepts any TrueType / OpenType / WOFF binary [opentype.js](https://opentype.js.org/) can parse. **WOFF2 must be decompressed first** (CLI step wires this). Output is a TrueType-flavoured OpenType binary, universally loadable.
+Accepts any TrueType / OpenType / WOFF binary [opentype.js](https://opentype.js.org/) can parse. **WOFF2 is handled too** — it's decompressed on input and recompressed on output via `wawoff2` (`isWoff2` / `decompressWoff2` / `compressWoff2`). Output is a TrueType-flavoured OpenType binary, universally loadable.
 
 ## Licensing
 
-The morph engine is license-agnostic, but morphing a font you do not have the right to modify is on you. Most commercial EULAs forbid modification even for mockups; OFL fonts allow it but may require a rename (the Reserved Font Name clause). The CLI surface (a later step) enforces per-font warnings, watermarking of commercial-classified inputs, and OFL rename handling. Until then, **only morph fonts you are licensed to modify.**
+The morph engine is license-agnostic, but morphing a font you do not have the right to modify is on you. Most commercial EULAs forbid modification even for mockups; OFL fonts allow it but may require a rename (the Reserved Font Name clause). The `fontfetch morph` CLI enforces this: OFL inputs get the clean path (Reserved Font Names are renamed automatically), while commercial / unknown inputs are warned about, watermarked in the binary's `name` table, renamed, and written as a `MOCKUP_` bundle with a disclaimer. Set `FONTFETCH_MORPH_POSTURE=ofl-only` to refuse anything not self-declared OFL. Calling `morph()` directly skips that gate, so **only morph fonts you are licensed to modify.**
 
 MIT © Niyam Vora

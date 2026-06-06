@@ -61,6 +61,9 @@
     "url": "https://github.com/niyamvora/fontfetch/issues"
   },
   "homepage": "https://github.com/niyamvora/fontfetch#readme",
+  "dependencies": {
+    "wawoff2": "^2.0.1"
+  },
   "devDependencies": {
     "@fontfetch/core": "workspace:*",
     "@fontfetch/morph": "workspace:*",

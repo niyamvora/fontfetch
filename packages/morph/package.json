@@ -12,7 +12,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -25,7 +27,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "opentype.js": "^2.0.0"
+    "opentype.js": "^2.0.0",
+    "wawoff2": "^2.0.1"
   },
   "devDependencies": {
     "@types/opentype.js": "^1.3.8"

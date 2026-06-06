@@ -24,6 +24,9 @@ import {
   resolvePosture,
   decideMorphPolicy,
   watermarkText,
+  isWoff2,
+  decompressWoff2,
+  compressWoff2,
   type FontLicenseSignal,
 } from '@fontfetch/morph';
 
@@ -136,6 +139,8 @@ Flags (morph subcommand, v1.5):
   --slant <N>       Slant angle 0–15 (degrees, faux italic)
   --weight <N>      Stroke delta −15…+15 (%); experimental on static fonts
   --rename <name>   Output family name (default: "<original> Prototype")
+  --format <fmt>    Output format: ttf | woff2 (default: woff2 if the input was
+                    woff2, else ttf). Accepts TTF / OTF / WOFF / WOFF2 input.
   --out <dir>       Output directory (default: ./morphed-fonts)
   --json            Machine-readable result on stdout
 
@@ -597,7 +602,7 @@ async function runMorph(args: string[]): Promise<void> {
   const renameFlag = strFlag(args, '--rename');
   const outDir = strFlag(args, '--out') ?? './morphed-fonts';
 
-  const valueFlags = new Set(['--round', '--width', '--slant', '--weight', '--rename', '--out']);
+  const valueFlags = new Set(['--round', '--width', '--slant', '--weight', '--rename', '--out', '--format']);
   const positional = args.filter((a, i) => {
     if (a.startsWith('--')) return false;
     const prev = args[i - 1];
@@ -618,11 +623,25 @@ async function runMorph(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // WOFF2 ('wOF2') can't be parsed by the morph engine yet — decompress first.
-  if (bytes.length >= 4 && bytes[0] === 0x77 && bytes[1] === 0x4f && bytes[2] === 0x46 && bytes[3] === 0x32) {
-    log.err('WOFF2 input is not yet supported by morph. Convert to TTF/OTF/WOFF first (WOFF2 wiring is a later v1.5 step).');
+  // WOFF2 can't be parsed by opentype.js directly — decompress to TTF first.
+  // The original file is still what we classify (fontkit reads WOFF2 fine).
+  const inputWasWoff2 = isWoff2(bytes);
+  if (inputWasWoff2) {
+    try {
+      bytes = await decompressWoff2(bytes);
+    } catch (e) {
+      log.err(`Failed to decompress WOFF2 input: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+
+  // Output format: explicit --format wins; otherwise round-trip WOFF2 in → out.
+  const formatFlag = strFlag(args, '--format')?.toLowerCase();
+  if (formatFlag && formatFlag !== 'ttf' && formatFlag !== 'woff2') {
+    log.err(`--format must be 'ttf' or 'woff2', got '${formatFlag}'`);
     process.exit(1);
   }
+  const outFormat: 'ttf' | 'woff2' = (formatFlag as 'ttf' | 'woff2') ?? (inputWasWoff2 ? 'woff2' : 'ttf');
 
   // Classify the input from its binary so the posture layer can decide. fontkit
   // (via core.inspect) reads name-table license fields woff2-and-all.
@@ -657,12 +676,23 @@ async function runMorph(args: string[]): Promise<void> {
     process.exit(1);
   }
 
+  // opentype.js writes TrueType; recompress to WOFF2 when asked.
+  let outBytes = result.font;
+  if (outFormat === 'woff2') {
+    try {
+      outBytes = await compressWoff2(result.font);
+    } catch (e) {
+      log.err(`Failed to compress output to WOFF2: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+
   const bundleDir = join(outDir, slug(rename));
-  const fileName = policy.watermark ? `${slug(family)}-prototype.ttf` : `${slug(rename)}.ttf`;
+  const fileName = policy.watermark ? `${slug(family)}-prototype.${outFormat}` : `${slug(rename)}.${outFormat}`;
   const outPath = join(bundleDir, fileName);
   try {
     mkdirSync(bundleDir, { recursive: true });
-    writeFileSync(outPath, result.font);
+    writeFileSync(outPath, outBytes);
     writeFileSync(
       join(bundleDir, policy.watermark ? 'MOCKUP_DISCLAIMER.md' : 'NOTICE.md'),
       policy.watermark ? mockupDisclaimer(family) : oflNotice(family, policy.requiresRename),

@@ -97,7 +97,7 @@ fontfetch subset <url> [outDir] [--whitelist <spec>] [--split-ranges[=<buckets>]
 fontfetch diff <urlA> <urlB> [outDir] [--json]                              # v1.4
 fontfetch audit <url> [--max-kb N] [--per-family-kb F:N,...] [--no-commercial] [--json]   # v1.4
 fontfetch budget <url> --max-kb N [outDir] [--json]                         # v1.4
-fontfetch morph <font-file> [--round N] [--width N] [--slant N] [--weight N] [--rename <name>] [--out <dir>] [--json]   # v1.5
+fontfetch morph <font-file> [--round N] [--width N] [--slant N] [--weight N] [--rename <name>] [--out <dir>] [--format ttf|woff2] [--json]   # v1.5
 ```
 
 | Arg / Flag | Default | Notes |
@@ -115,6 +115,7 @@ fontfetch morph <font-file> [--round N] [--width N] [--slant N] [--weight N] [--
 | `--split-ranges[=<buckets>]` (subset) | off | Emit one woff2 per Google Fonts language bucket (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `greek-ext`, `vietnamese`) and a chained `fonts.subset.css` (v1.3) |
 | `--round / --width / --slant / --weight <N>` (morph) | — | Parametric morph sliders: corner radius 0–100%, width 80–120%, slant 0–15°, stroke −15…+15% (v1.5). `--weight` on static fonts is experimental |
 | `--rename <name>` (morph) | `"<original> Prototype"` | Output family name (v1.5) |
+| `--format <ttf\|woff2>` (morph) | woff2 if input was woff2, else ttf | Output binary format. Accepts TTF / OTF / WOFF / **WOFF2** input either way (v1.5) |
 
 Examples:
 
@@ -144,10 +145,10 @@ The first feature that gives fontfetch a moat its CLI competitors can't reach. *
   fontfetch morph ./Geist.otf --slant=8 --rename "Geist Sketch"
   ```
 - **Licensing is the gate, not a footnote.** OFL fonts get the clean path (Reserved Font Names are renamed automatically). Commercial / unknown-license inputs are allowed but **warned about, watermarked in the binary, renamed, and written as a `MOCKUP_` bundle with a disclaimer** — prototype use only. Set `FONTFETCH_MORPH_POSTURE=ofl-only` to refuse anything not self-declared OFL. **Honour the people who make type.**
-- **New `@fontfetch/morph` package** carries the engine, bundled into the CLI so npm users need no extra install.
-- **v1.5.x package split (interface-first):** new `@fontfetch/inspect`, `@fontfetch/subset`, and `@fontfetch/fallback` packages establish the import boundary for third-party reuse, backed by `@fontfetch/core` today.
+- **New `@fontfetch/morph` package** carries the engine. It's bundled into the published `fontfetch` CLI (along with `@fontfetch/core` and `opentype.js`), so there's nothing extra to install — `npx fontfetch` ships the whole thing.
+- **Interface-first package boundary.** Internal `@fontfetch/inspect`, `@fontfetch/subset`, and `@fontfetch/fallback` facades re-export their surface from `@fontfetch/core` to mark a future import boundary. They're not separately published — the single bundled CLI stays the install, so you get the whole package, not à-la-carte pieces.
 
-> WOFF2 input is decompress-first for now (TTF/OTF/WOFF are supported directly). The webapp morph editor (v1.6) and a preset library (v1.7) build on this engine.
+> Accepts TTF / OTF / WOFF / WOFF2 input — WOFF2 is decompressed in and recompressed out transparently. The webapp morph editor (v1.6) and a preset library (v1.7) build on this engine.
 
 ### What's new in v1.4
 

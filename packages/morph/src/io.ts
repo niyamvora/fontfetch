@@ -1,5 +1,5 @@
 /**
- * Font load / save plumbing — Step 2 of the v1.5 morph build.
+ * Font load / save plumbing for the v1.5 morph engine.
  *
  * opentype.js is the only mature library that both *reads* and *writes* font
  * binaries (fontkit, used elsewhere in fontfetch, is read-only). We parse to an
@@ -7,9 +7,10 @@
  * re-serialise.
  *
  * Input: any TrueType/OpenType/WOFF binary opentype.js can parse. WOFF2 must be
- * decompressed to one of those first — that wiring lands with the CLI in a later
- * step. Output is always a TrueType-flavoured OpenType binary (opentype.js's
- * writer emits `glyf`), which is universally loadable.
+ * decompressed to one of those first; the CLI does that round-trip via the
+ * `wawoff2` helpers in `woff2.ts` (decompress in, recompress out). Output here
+ * is always a TrueType-flavoured OpenType binary (opentype.js's writer emits
+ * `glyf`), which is universally loadable.
  */
 // opentype.js v2 is a dual-package: Node ESM resolves it to the CJS build
 // (everything hangs off the default export, named imports throw), while a
