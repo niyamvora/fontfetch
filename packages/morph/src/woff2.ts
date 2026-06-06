@@ -1,3 +1,4 @@
+/// <reference path="./wawoff2.d.ts" />
 /**
  * WOFF2 input/output for the morph pipeline.
  *
