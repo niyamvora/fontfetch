@@ -6,6 +6,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-06-06
+
+The **font morphing** release — the first feature that gives fontfetch a moat its CLI competitors can't reach. Tag line: *"extract any font, then sketch on it — round it, widen it, slant it, thicken it, export a real binary."* Built for **pre-commission ideation**: the typography sketchbook that comes *before* commissioning a real typeface, not a replacement for one.
+
+This release ships the morph **engine + CLI**, bundled into the single published `fontfetch` package, plus an **interface-first package boundary** (internal facades, not a separately published split). The webapp morph editor (v1.6) and preset library (v1.7) build on top of it.
+
+### Added — `fontfetch morph <file>`
+
+- **New `morph` subcommand.** Parametric morphing with four sliders:
+  - `--round <N>` — corner radius 0–100% (quadratic fillets on straight-line corners; lossless transforms leave curves untouched)
+  - `--width <N>` — horizontal scale 80–120% (lossless matrix; advance widths track)
+  - `--slant <N>` — slant 0–15° (lossless shear; an honest faux-oblique, not a true italic)
+  - `--weight <N>` — stroke delta −15…+15% (**experimental** on static fonts: winding-aware outline offset, clamped, warned)
+  - `--rename <name>` (default `"<original> Prototype"`), `--out <dir>`, `--format <ttf|woff2>`, `--json`
+  ```bash
+  fontfetch morph ./Inter.ttf --round=20 --width=108
+  fontfetch morph ./Geist.otf --slant=8 --rename "Geist Sketch"
+  fontfetch morph ./Inter.woff2 --slant=6          # WOFF2 in → WOFF2 out
+  ```
+  Accepts **TTF / OTF / WOFF / WOFF2** input. WOFF2 is decompressed on the way in and recompressed on the way out (via `wawoff2`) — transparently. Output defaults to WOFF2 when the input was WOFF2, otherwise TTF; override with `--format`.
+
+### Added — licensing posture (the gate, not a footnote)
+
+- **"Allow all, warn per font" posture, shipped with the strict path built in.** The input is classified from its binary's name-table license:
+  - **OFL** fonts get the clean path. A Reserved Font Name (RFN) forces a rename, per the license.
+  - **Commercial / unknown** inputs are allowed but **warned about, watermarked in the binary's name table, renamed, and written as a `MOCKUP_` bundle with a `MOCKUP_DISCLAIMER.md`** — prototype use only.
+- **`FONTFETCH_MORPH_POSTURE=ofl-only`** flips to refusing any non-OFL input entirely. The strict code path exists from day one, so the flip is config, not a refactor.
+- **`morphBlocklist`** (empty by default) supports per-foundry hard blocks with the same signature shape as core's CDN lists.
+
+### Added — `@fontfetch/morph` package
+
+- New workspace package with the engine: `morph()`, the four transforms, `loadFont`/`saveFont` (opentype.js round-trip — fontkit, used elsewhere in fontfetch, is read-only), and the posture/naming helpers (`decideMorphPolicy`, `renameFamily`, `applyWatermark`). 36 vitest cases; smoke-tested on real multi-thousand-glyph fonts. Bundled into the published `fontfetch` CLI so npm users need no extra install.
+
+### Changed — interface-first package boundary
+
+- New `@fontfetch/inspect`, `@fontfetch/subset`, and `@fontfetch/fallback` workspace packages mark the intended public import boundary by re-exporting their surface from `@fontfetch/core`. They are **internal facades** — `private`, not published to npm — and the implementations remain in `@fontfetch/core`. The published `fontfetch` CLI stays the single install (it bundles core + morph + opentype.js), so users download the whole package; there are no à-la-carte installs. Carving these out into separately published packages (the "physical split") is **deferred** and not on the near-term roadmap.
+
 ## [1.4.0] — 2026-05-29
 
 The "distribution surface + competitor-gap closeouts" release. **Eight features ship in one minor — the four engine closeouts plus the four distribution channels.** Tag line: *"fontfetch 1.4: extract → audit → ship. With every page, every weight, every font signal you didn't know you needed — and now everywhere you already work."*

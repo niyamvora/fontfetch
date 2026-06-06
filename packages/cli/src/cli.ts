@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import {
   pull,
   log,
@@ -17,8 +19,18 @@ import {
   type EmitTarget,
   type FontFormat,
 } from '@fontfetch/core';
+import {
+  morph,
+  resolvePosture,
+  decideMorphPolicy,
+  watermarkText,
+  isWoff2,
+  decompressWoff2,
+  compressWoff2,
+  type FontLicenseSignal,
+} from '@fontfetch/morph';
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 
 function printHelp(): void {
   log.info(`fontfetch ${VERSION}
@@ -30,6 +42,7 @@ Usage:
   fontfetch diff <urlA> <urlB>           Diff the font set between two URLs (v1.4)
   fontfetch audit <url> [flags]          CI-friendly checks: budget, no-commercial (v1.4, non-zero exit on fail)
   fontfetch budget <url> --max-kb N      Convenience around audit for the bundle-size dimension (v1.4)
+  fontfetch morph <file> [flags]         Prototype-morph a font: round / widen / slant / thicken (v1.5)
 
 Arguments (default command):
   <url>             Page to download fonts from (https://example.com)
@@ -119,6 +132,27 @@ Examples (v1.4):
   fontfetch diff https://staging.acme.com https://acme.com --json
   fontfetch audit https://acme.com --max-kb 200 --no-commercial
   fontfetch budget https://acme.com --max-kb 100 --json
+
+Flags (morph subcommand, v1.5):
+  --round <N>       Corner radius 0–100 (% of the shorter adjacent edge)
+  --width <N>       Horizontal scale 80–120 (%)
+  --slant <N>       Slant angle 0–15 (degrees, faux italic)
+  --weight <N>      Stroke delta −15…+15 (%); experimental on static fonts
+  --rename <name>   Output family name (default: "<original> Prototype")
+  --format <fmt>    Output format: ttf | woff2 (default: woff2 if the input was
+                    woff2, else ttf). Accepts TTF / OTF / WOFF / WOFF2 input.
+  --out <dir>       Output directory (default: ./morphed-fonts)
+  --json            Machine-readable result on stdout
+
+  Licensing: commercial / unknown-license inputs are warned about, watermarked
+  in the binary, and written as a MOCKUP bundle — prototype use only. OFL fonts
+  get the clean path (Reserved Font Names are renamed). Set
+  FONTFETCH_MORPH_POSTURE=ofl-only to refuse non-OFL inputs entirely.
+
+Examples (v1.5):
+  fontfetch morph ./Inter.ttf --round=20 --width=108
+  fontfetch morph ./Geist.otf --slant=8 --rename "Geist Sketch"
+  fontfetch morph ./Inter.ttf --weight=10 --json
 
 Output (per site):
   <outDir>/<hostname>/
@@ -497,6 +531,208 @@ async function runBudget(args: string[]): Promise<void> {
   await runAudit(args);
 }
 
+/** Parse `--name=N` / `--name N` into a number, exiting on a bad value. */
+function numFlag(args: string[], name: string): number | undefined {
+  const idx = args.findIndex((a) => a === name || a.startsWith(`${name}=`));
+  if (idx === -1) return undefined;
+  const raw = args[idx] === name ? args[idx + 1] : args[idx].slice(name.length + 1);
+  const n = Number(raw);
+  if (raw === undefined || !Number.isFinite(n)) {
+    log.err(`${name} requires a number, got '${raw ?? ''}'`);
+    process.exit(1);
+  }
+  return n;
+}
+
+/** Parse `--name=value` / `--name value` into a string. */
+function strFlag(args: string[], name: string): string | undefined {
+  const idx = args.findIndex((a) => a === name || a.startsWith(`${name}=`));
+  if (idx === -1) return undefined;
+  const raw = args[idx] === name ? args[idx + 1] : args[idx].slice(name.length + 1);
+  if (!raw) {
+    log.err(`${name} requires a value`);
+    process.exit(1);
+  }
+  return raw;
+}
+
+const slug = (s: string): string =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'font';
+
+function mockupDisclaimer(family: string): string {
+  return `# MOCKUP — not for production use
+
+This font was produced by \`fontfetch morph\` from **${family}**, which is classified
+as commercial or unknown-license. Its EULA almost certainly forbids modification,
+**including** modification for mockups.
+
+- Use this file **only** for internal prototyping and client ideation.
+- **Do not** distribute, embed, or ship it.
+- If the direction is approved, commission the real typeface from its foundry.
+
+The binary carries an embedded watermark in its name table identifying it as a
+fontfetch prototype. fontfetch is a sketchbook, not a font factory.
+`;
+}
+
+function oflNotice(family: string, requiresRename: boolean): string {
+  return `# Morphed font — OFL derivative
+
+Produced by \`fontfetch morph\` from **${family}** (SIL Open Font License).
+
+Under the OFL you may modify and redistribute this derivative provided you keep
+the license and attribution with it, and note that it is a modified version.
+${requiresRename ? '\n**Reserved Font Name:** the original family name must not appear in this\nderivative’s name — it has been renamed accordingly.\n' : ''}`;
+}
+
+/**
+ * v1.5 — `fontfetch morph <file> [--round N] [--width N] [--slant N] [--weight N]`.
+ * Prototyping-grade parametric morphing. Classifies the input via the binary's
+ * name-table license, applies the posture guardrails (warn + watermark + rename
+ * for commercial inputs, OFL rename for Reserved Font Names), and writes a
+ * bundle. See @fontfetch/morph for the engine and the standing licensing
+ * decision. Honour the people who make type.
+ */
+async function runMorph(args: string[]): Promise<void> {
+  const wantJson = args.includes('--json');
+  const round = numFlag(args, '--round');
+  const width = numFlag(args, '--width');
+  const slant = numFlag(args, '--slant');
+  const weight = numFlag(args, '--weight');
+  const renameFlag = strFlag(args, '--rename');
+  const outDir = strFlag(args, '--out') ?? './morphed-fonts';
+
+  const valueFlags = new Set(['--round', '--width', '--slant', '--weight', '--rename', '--out', '--format']);
+  const positional = args.filter((a, i) => {
+    if (a.startsWith('--')) return false;
+    const prev = args[i - 1];
+    if (prev && valueFlags.has(prev)) return false;
+    return true;
+  });
+  const filePath = positional[0];
+  if (!filePath) {
+    log.err('Missing <file>. Usage: fontfetch morph <font-file> [--round N --width N --slant N --weight N]');
+    process.exit(1);
+  }
+
+  let bytes: Uint8Array;
+  try {
+    bytes = readFileSync(filePath);
+  } catch (e) {
+    log.err(`Cannot read ${filePath}: ${(e as Error).message}`);
+    process.exit(1);
+  }
+
+  // WOFF2 can't be parsed by opentype.js directly — decompress to TTF first.
+  // The original file is still what we classify (fontkit reads WOFF2 fine).
+  const inputWasWoff2 = isWoff2(bytes);
+  if (inputWasWoff2) {
+    try {
+      bytes = await decompressWoff2(bytes);
+    } catch (e) {
+      log.err(`Failed to decompress WOFF2 input: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+
+  // Output format: explicit --format wins; otherwise round-trip WOFF2 in → out.
+  const formatFlag = strFlag(args, '--format')?.toLowerCase();
+  if (formatFlag && formatFlag !== 'ttf' && formatFlag !== 'woff2') {
+    log.err(`--format must be 'ttf' or 'woff2', got '${formatFlag}'`);
+    process.exit(1);
+  }
+  const outFormat: 'ttf' | 'woff2' = (formatFlag as 'ttf' | 'woff2') ?? (inputWasWoff2 ? 'woff2' : 'ttf');
+
+  // Classify the input from its binary so the posture layer can decide. fontkit
+  // (via core.inspect) reads name-table license fields woff2-and-all.
+  let signal: FontLicenseSignal = { isOFL: false, hasRFN: false };
+  try {
+    const report = await inspect(filePath);
+    signal = {
+      isOFL: report.license?.isOFL ?? false,
+      hasRFN: report.license?.hasRFN ?? false,
+      vendor: report.vendor ?? undefined,
+      family: report.familyName ?? undefined,
+    };
+  } catch (e) {
+    log.err(`Could not read license from the binary (treating as restricted): ${(e as Error).message}`);
+  }
+
+  const policy = decideMorphPolicy(signal, { posture: resolvePosture() });
+  if (!policy.allowed) {
+    log.err(policy.blockedReason ?? 'Refused by morph posture.');
+    process.exit(1);
+  }
+
+  const family = signal.family ?? basename(filePath).replace(/\.[^.]+$/, '');
+  const rename = renameFlag ?? `${family} Prototype`;
+  const watermark = policy.watermark ? watermarkText(family) : undefined;
+
+  let result;
+  try {
+    result = morph(bytes, { round, width, slant, weight, rename, watermark });
+  } catch (e) {
+    log.err(`morph failed: ${(e as Error).message}`);
+    process.exit(1);
+  }
+
+  // opentype.js writes TrueType; recompress to WOFF2 when asked.
+  let outBytes = result.font;
+  if (outFormat === 'woff2') {
+    try {
+      outBytes = await compressWoff2(result.font);
+    } catch (e) {
+      log.err(`Failed to compress output to WOFF2: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+
+  const bundleDir = join(outDir, slug(rename));
+  const fileName = policy.watermark ? `${slug(family)}-prototype.${outFormat}` : `${slug(rename)}.${outFormat}`;
+  const outPath = join(bundleDir, fileName);
+  try {
+    mkdirSync(bundleDir, { recursive: true });
+    writeFileSync(outPath, outBytes);
+    writeFileSync(
+      join(bundleDir, policy.watermark ? 'MOCKUP_DISCLAIMER.md' : 'NOTICE.md'),
+      policy.watermark ? mockupDisclaimer(family) : oflNotice(family, policy.requiresRename),
+    );
+  } catch (e) {
+    log.err(`Could not write output bundle: ${(e as Error).message}`);
+    process.exit(1);
+  }
+
+  const allWarnings = [...policy.warnings, ...result.warnings];
+  if (wantJson) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          input: filePath,
+          output: outPath,
+          classification: policy.classification,
+          applied: result.applied,
+          renamedTo: result.renamedTo,
+          watermarked: result.watermarked,
+          warnings: allWarnings,
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+  } else {
+    log.info('');
+    log.info(`Morphed ${family} → ${outPath}`);
+    log.info(
+      `  applied: round=${result.applied.round} width=${result.applied.width} slant=${result.applied.slant} weight=${result.applied.weight}`,
+    );
+    log.info(
+      `  ${policy.classification}${result.renamedTo ? ` · renamed to "${result.renamedTo}"` : ''}${result.watermarked ? ' · watermarked' : ''}`,
+    );
+    for (const w of allWarnings) log.err(`  ⚠ ${w}`);
+  }
+  process.exit(0);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
@@ -529,6 +765,10 @@ async function main(): Promise<void> {
   }
   if (command === 'budget') {
     await runBudget(rest);
+    return;
+  }
+  if (command === 'morph') {
+    await runMorph(rest);
     return;
   }
 

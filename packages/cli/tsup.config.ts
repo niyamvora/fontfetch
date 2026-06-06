@@ -1,10 +1,15 @@
 import { defineConfig } from 'tsup';
 
 /**
- * The published `fontfetch` npm package is a single self-contained file: tsup
- * bundles `@fontfetch/core` into `dist/cli.js` via `noExternal`, so npm
- * consumers don't need any workspace machinery. Playwright stays external —
- * it's an optional peer dep loaded dynamically only in --headless mode.
+ * The published `fontfetch` npm package bundles `@fontfetch/core`,
+ * `@fontfetch/morph`, and morph's `opentype.js` dependency into `dist/cli.js`
+ * via `noExternal`, so npm consumers don't need any workspace machinery.
+ *
+ * `wawoff2` (the WOFF2 WASM codec) stays EXTERNAL — its emscripten glue
+ * references `__dirname` and can't run inside an ESM bundle. It's a normal
+ * runtime dependency that npm installs, dynamically imported only when a morph
+ * actually touches WOFF2. Playwright is likewise external — an optional peer
+ * dep loaded only in --headless mode.
  */
 export default defineConfig({
   entry: ['src/cli.ts'],
@@ -15,8 +20,8 @@ export default defineConfig({
   sourcemap: true,
   shims: false,
   minify: false,
-  external: ['playwright'],
-  noExternal: ['@fontfetch/core'],
+  external: ['playwright', 'wawoff2'],
+  noExternal: ['@fontfetch/core', '@fontfetch/morph', 'opentype.js'],
   banner: {
     js: '#!/usr/bin/env node',
   },

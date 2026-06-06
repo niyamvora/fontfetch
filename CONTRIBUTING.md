@@ -29,15 +29,24 @@ pnpm --filter fontfetch start -- https://example.com
 packages/
 ├── core/              @fontfetch/core — shared pipeline (parse, license,
 │                      provenance, emitters, pull). Imported by the CLI,
-│                      the webapp, and the worker.
+│                      the webapp, and the worker. (private workspace lib)
+├── morph/             @fontfetch/morph — v1.5 parametric morph engine
+│                      (opentype.js + wawoff2). Bundled into the CLI. (private)
+├── registry/          @fontfetch/registry — typed pairings registry (published)
+├── inspect/           interface facades — re-export core to mark a future
+├── subset/            import boundary. private, not published; the bundled
+├── fallback/          CLI stays the single install (see docs/architecture.md).
 └── cli/               `fontfetch` — the published npm package. Single
-                       file, bundles core via tsup.
+                       file; bundles core + morph + opentype.js via tsup.
 
 apps/
 ├── web/               Placeholder. The actual fontfetch.dev webapp source
 │                      lives in the private fontfetch_fullstack repo
 │                      (alongside the future auth + saved-sessions backend).
 └── worker/            Reserved for the Playwright headless service (v0.5.x).
+
+extensions/            GitHub Action, Raycast, Homebrew — outside the workspace.
+pairings/              Community pairings registry source.
 ```
 
 This repo is the open-source surface — CLI, `@fontfetch/core`, docs, and the

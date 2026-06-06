@@ -1,6 +1,6 @@
 {
   "name": "fontfetch",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Download every web font from any site into a project-ready folder — with CSS, manifest, framework configs, terminal-native font inspection, per-weight zero-CLS fallback metrics, DOM-driven subsetting, per-language unicode-range splitting, modern-format-only emit, CI-friendly audit + budget + diff subcommands, W3C design-token emit, and cross-page consistency reporting.",
   "type": "module",
   "bin": {
@@ -61,8 +61,13 @@
     "url": "https://github.com/niyamvora/fontfetch/issues"
   },
   "homepage": "https://github.com/niyamvora/fontfetch#readme",
+  "dependencies": {
+    "wawoff2": "^2.0.1"
+  },
   "devDependencies": {
-    "@fontfetch/core": "workspace:*"
+    "@fontfetch/core": "workspace:*",
+    "@fontfetch/morph": "workspace:*",
+    "opentype.js": "^2.0.0"
   },
   "peerDependencies": {
     "playwright": "^1.49.0",

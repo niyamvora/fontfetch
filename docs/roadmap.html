@@ -769,7 +769,7 @@ pre .p { color: var(--code-comment); }
 
   <ul class="stat-strip" aria-label="Roadmap status counts">
     <li class="s-shipped">
-      <span class="num">13</span>
+      <span class="num">14</span>
       <span class="label">Shipped</span>
     </li>
     <li class="s-flight">
@@ -777,7 +777,7 @@ pre .p { color: var(--code-comment); }
       <span class="label">In flight</span>
     </li>
     <li class="s-planned">
-      <span class="num">8</span>
+      <span class="num">7</span>
       <span class="label">Planned</span>
     </li>
     <li class="s-declined">
@@ -806,10 +806,10 @@ pre .p { color: var(--code-comment); }
     <li class="arc-node" data-status="shipped"><a href="#v13"><span class="arc-version">v1.3</span><span class="arc-dot"></span><span class="arc-caption">formats · whitelist · split</span></a></li>
     <li class="arc-node" data-status="shipped"><a href="#v131"><span class="arc-version">v1.3.1</span><span class="arc-dot"></span><span class="arc-caption">signal quality</span></a></li>
     <li class="arc-node" data-status="shipped"><a href="#v14"><span class="arc-version">v1.4</span><span class="arc-dot"></span><span class="arc-caption">CI gate · channels</span></a></li>
-    <li class="arc-node" data-status="planned"><a href="#v15"><span class="arc-version">v1.5</span><span class="arc-dot"></span><span class="arc-caption">morph (CLI)</span></a></li>
+    <li class="arc-node" data-status="shipped"><a href="#v15"><span class="arc-version">v1.5</span><span class="arc-dot"></span><span class="arc-caption">morph (CLI)</span></a></li>
     <li class="arc-node" data-status="planned"><a href="#v16"><span class="arc-version">v1.6</span><span class="arc-dot"></span><span class="arc-caption">morph editor</span></a></li>
     <li class="arc-node" data-status="planned"><a href="#v17"><span class="arc-version">v1.7</span><span class="arc-dot"></span><span class="arc-caption">preset library</span></a></li>
-    <li class="arc-node" data-status="planned"><a href="#v15x"><span class="arc-version">v1.5.x</span><span class="arc-dot"></span><span class="arc-caption">package split</span></a></li>
+    <li class="arc-node" data-status="planned"><a href="#v15x"><span class="arc-version">v1.5.x</span><span class="arc-dot"></span><span class="arc-caption">package split · deferred</span></a></li>
     <li class="arc-node" data-status="planned"><a href="#v07"><span class="arc-version">v0.7</span><span class="arc-dot"></span><span class="arc-caption">accounts</span></a></li>
     <li class="arc-node" data-status="planned"><a href="#stretch"><span class="arc-version">∗</span><span class="arc-dot"></span><span class="arc-caption">stretch</span></a></li>
   </ol>
@@ -1476,10 +1476,10 @@ fontfetch subset https://stripe.com --split-ranges=latin,latin-ext,vietnamese</c
   </section>
 
   <!-- v1.5 -->
-  <section id="v15" class="version planned" data-status="planned">
+  <section id="v15" class="version shipped" data-status="shipped">
     <div class="v-head">
       <div>
-        <p class="v-eyebrow"><span class="pill planned">Planned</span><span class="tag">Open posture</span><span class="tag">OFL-rename enforced</span></p>
+        <p class="v-eyebrow"><span class="pill shipped">Shipped</span><span class="v-date">2026-06-06</span><span class="tag">Open posture</span><span class="tag">OFL-rename enforced</span></p>
         <h2 class="v-title-row"><span class="v-num">v1.5</span><span class="v-name">Prototype-grade font morphing (CLI)</span></h2>
       </div>
     </div>
@@ -1525,11 +1525,10 @@ fontfetch subset https://stripe.com --split-ranges=latin,latin-ext,vietnamese</c
       <p>The engine is the same either way; only the gating layer flips. Treat the open posture as a default that's one email away from becoming the closed posture; the OFL-only code path exists from v1.5 day one so the flip is a config change, not a refactor.</p>
       <p>A <code>morphBlocklist</code> array in code (initially empty) supports per-foundry hard-blocks via URL signatures — same shape as the existing CDN signature lists. A <code>FONTFETCH_MORPH_POSTURE</code> env var toggles between <code>open</code> (default) and <code>ofl-only</code> modes.</p>
 
-      <h3>Dependencies + package</h3>
+      <h3>Dependencies + package <span class="tag">as shipped</span></h3>
       <ul>
-        <li>New runtime deps: <code>bezier-js</code> (corner fillet, ~32 KB MIT), <code>paper.js</code> core (path offset, ~80 KB tree-shaken MIT), <code>opentype.js</code> (font binary rewrite — <code>fontkit</code> reads but its write surface is incomplete).</li>
-        <li><code>wawoff2</code> for compression (already indirect via <code>subset-font</code>).</li>
-        <li>The morph engine lives in a new workspace package <code>@fontfetch/morph</code>. CLI bundle grows ~2.26 MB → ~2.7 MB.</li>
+        <li>Runtime deps came in lighter than planned: <code>opentype.js</code> (font binary round-trip — <code>fontkit</code> reads but its write surface is incomplete) and <code>wawoff2</code> (WOFF2 decode/encode). The corner-fillet and outline-offset math is done <strong>in-house</strong> in <code>geometry.ts</code> — the planned <code>bezier-js</code> + <code>paper.js</code> dependencies were not needed.</li>
+        <li>The morph engine ships as the workspace package <code>@fontfetch/morph</code>, bundled into the published <code>fontfetch</code> CLI (<code>opentype.js</code> inlined via <code>tsup noExternal</code>; <code>wawoff2</code> stays a normal runtime dep, dynamically imported only when a morph touches WOFF2).</li>
       </ul>
 
       <h3>Test plan</h3>
@@ -1597,22 +1596,22 @@ fontfetch subset https://stripe.com --split-ranges=latin,latin-ext,vietnamese</c
   <section id="v15x" class="version planned" data-status="planned">
     <div class="v-head">
       <div>
-        <p class="v-eyebrow"><span class="pill planned">Infrastructure · structural</span></p>
-        <h2 class="v-title-row"><span class="v-num">v1.5.x</span><span class="v-name">Workspace package split</span></h2>
+        <p class="v-eyebrow"><span class="pill planned">Interface-first shipped · physical split deferred</span></p>
+        <h2 class="v-title-row"><span class="v-num">v1.5.x</span><span class="v-name">Workspace package boundary</span></h2>
       </div>
     </div>
     <div class="v-body">
-      <p>Not a release tag — a structural change that happens alongside v1.5+ and unblocks third-party reuse. The current <code>@fontfetch/core</code> carries everything; the post-v1.3 plan has always called for slim sibling packages. v1.5+ is when that split actually happens because the morph engine arrives as its own dependency-heavy package and would balloon <code>core</code> if folded in.</p>
+      <p>Not a release tag — a structural decision that landed alongside v1.5. The <strong>interface-first half shipped</strong>: thin <code>@fontfetch/inspect</code>, <code>subset</code>, and <code>fallback</code> facade packages now mark the intended public import boundary by re-exporting from <code>@fontfetch/core</code>. The <strong>physical split is deferred</strong> — the standing decision is to keep the implementations in <code>core</code> and ship a single bundled CLI, so users download the whole package rather than à-la-carte primitives.</p>
 <pre data-lang="tree"><code>packages/
-├── core/        existing — extraction + classification + pull()
-├── cli/         existing — the published `fontfetch` binary
-├── registry/    existing — typed pairings consumer (shipped v1.4.0)
-├── inspect/     new in v1.5.x — name-table / axes / features / license-from-binary
-├── subset/      new in v1.5.x — Playwright DOM scrape + harfbuzzjs subset
-├── fallback/    new in v1.5.x — capsize-driven CLS-killing @font-face emitter
-└── morph/       new in v1.5 — bezier-js + paper.js + opentype.js parametric morph</code></pre>
-      <p><code>fontfetch</code> CLI re-exports each sub-command (<code>fontfetch inspect</code>, <code>fontfetch subset</code>, <code>fontfetch fallback</code>, <code>fontfetch lookup</code>, <code>fontfetch morph</code>). The 90% of users only ever type <code>npx fontfetch</code>; the 10% who want primitives import from <code>@fontfetch/inspect</code> directly.</p>
-      <p>Each split is mechanical — move files between packages, update <code>@fontfetch/core</code> exports to re-export the relocated symbols for backward compatibility, bump consumer imports lazily.</p>
+├── core/        existing — extraction + classification + pull() (implementations live here)
+├── cli/         existing — the published `fontfetch` binary (bundles core + morph)
+├── registry/    existing — typed pairings consumer (published, v1.4.0)
+├── morph/       v1.5 — opentype.js + wawoff2 parametric morph engine (private, bundled)
+├── inspect/     v1.5 — interface facade, re-exports core (private, not published)
+├── subset/      v1.5 — interface facade, re-exports core (private, not published)
+└── fallback/    v1.5 — interface facade, re-exports core (private, not published)</code></pre>
+      <p><code>fontfetch</code> CLI carries every sub-command (<code>inspect</code>, <code>subset</code>, <code>diff</code>, <code>audit</code>, <code>budget</code>, <code>morph</code>). Effectively everyone just types <code>npx fontfetch</code> — that's the design. The facade packages exist so a future physical relocation can happen without breaking importers, <em>if</em> demand for standalone primitives ever materialises; until then the bundled CLI is the single install.</p>
+      <p>Why deferred: a real split adds publish/version/CI surface for packages no external consumer is asking for yet. The boundary is cheap to keep; the split is not. Revisit only if third-party reuse becomes a concrete ask.</p>
     </div>
   </section>
 
