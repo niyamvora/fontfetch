@@ -41,6 +41,9 @@ importers:
       subset-font:
         specifier: ^2.5.0
         version: 2.5.0
+      wawoff2:
+        specifier: ^2.0.1
+        version: 2.0.1
     devDependencies:
       '@fontfetch/core':
         specifier: workspace:*
