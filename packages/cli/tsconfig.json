@@ -4,7 +4,8 @@
     "noEmit": true,
     "declaration": false,
     "paths": {
-      "@fontfetch/core": ["../core/src/index.ts"]
+      "@fontfetch/core": ["../core/src/index.ts"],
+      "@fontfetch/morph": ["../morph/src/index.ts"]
     }
   },
   "include": ["src/**/*"],
